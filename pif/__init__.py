@@ -1,1 +1,4 @@
-__all__ = ['cmd']
+__all__ = [
+    'cmd',
+    'flickr',
+]
