@@ -27,5 +27,10 @@ setup(
         ]
     },
 
+    tests_require = [
+        'MiniMock',
+        'nose',
+    ],
+
     test_suite = 'nose.collector',
 )
