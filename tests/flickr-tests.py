@@ -10,6 +10,8 @@ from minimock import Mock
 from nose.exc import SkipTest
 from nose.tools import raises
 
+import pif
+
 from pif.flickr import get_proxy, FlickrIndex
 
 class OnlineProxyTests(unittest.TestCase):
@@ -168,8 +170,8 @@ class IndexTests(unittest.TestCase):
         responses = []
 
         for id, values in self.XML_DATA.iteritems():
-            data = ('*' * 512 + str(id))[:512]
-            values['tailhash'] = hashlib.sha512(data).hexdigest()
+            data = ('*' * pif.TAILHASH_SIZE + str(id))[:512]
+            values['tailhash'] = hashlib.sha512(data).digest()
 
             responses.append((MockResponse(206, values['size']), data))
 

@@ -7,6 +7,8 @@ import flickrapi
 import httplib2
 import pkg_resources
 
+import pif
+
 API_KEY, API_SECRET = pkg_resources.resource_string(__name__, 'flickr-api.key').split()
 
 def _default_proxy_cb():
@@ -15,10 +17,10 @@ def _default_proxy_cb():
 
 def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=_default_proxy_cb):
     # Setup the API proxy.
-    proxy = flickrapi.FlickrAPI(key, secret, format = 'etree')
+    proxy = flickrapi.FlickrAPI(key, secret, format='etree')
 
     # Authorize.
-    auth_response = proxy.get_token_part_one(perms = 'write')
+    auth_response = proxy.get_token_part_one(perms='write')
 
     while True:
         try:
@@ -33,8 +35,6 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=_default_proxy_cb):
     return proxy
 
 class FlickrPhoto:
-    TAILHASH_SIZE = 512
-
     def __init__(self, id):
         self.id = id
 
@@ -122,21 +122,23 @@ class FlickrIndex:
             # TODO: Persist the HTTP connection.
             h = httplib2.Http()
 
-            resp, content = h.request(uri = photo.url,
-                                      headers = {'Range': "bytes=-%u" % FlickrPhoto.TAILHASH_SIZE})
+            resp, content = h.request(uri=photo.url,
+                                      headers={'Range': "bytes=-%u" % pif.TAILHASH_SIZE})
             assert resp.status == 206
 
             photo.size = int(resp['content-range'].split('/')[-1])
-            photo.tailhash = hashlib.sha512(content).hexdigest()
+            photo.tailhash = hashlib.sha512(content).digest()
 
         requests = [threadpool.WorkRequest(get_photo_size, (p, ))
                     for p in new_photos]
 
         if requests:
-            pool = threadpool.ThreadPool(self.NUM_WORKERS)
+            pool = threadpool.ThreadPool(0)
 
             for r in requests:
                 pool.putRequest(r)
+
+            pool.createWorkers(self.NUM_WORKERS, poll_timeout=0)
             pool.wait()
 
-            pool.dismissWorkers(self.NUM_WORKERS)
+            pool.dismissWorkers(len(pool.workers))
