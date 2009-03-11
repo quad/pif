@@ -97,9 +97,35 @@ class OnlineProxyTests(unittest.TestCase):
         self.assertRaises(flickrapi.FlickrError, get_proxy, wait_callback=cb)
         assert self.hit_cb
 
+class EmptyIndexTests(unittest.TestCase):
+    def test_auto_refresh(self):
+        """FlickrIndex refresh on construction."""
+
+        photo_xml = XML("""
+                        <rsp>
+                            <photos page="1" pages="1" perpage="100" total="1">
+                                <photo farm="4" id="2717638353" isfamily="0" isfriend="0" ispublic="1" lastupdate="1227123744" o_height="1024" o_width="1544" originalformat="jpg" originalsecret="1111111111" owner="25046991@N00" secret="xxxxxxxxxx" server="3071" title="87680027.JPG" />
+                            </photos>
+                        </rsp>""")
+        proxy = Mock('FlickrAPI')
+        proxy.photos_recentlyUpdated.mock_returns = photo_xml
+
+        # TODO: Mock the HTTP request for the photo. Right now this results in a
+        # ServerNotFoundError from httplib2.
+
+        index = FlickrIndex(proxy)
+
+        assert index.last_update == 1227123744, index.last_update
+
 class IndexTests(unittest.TestCase):
     def setUp(self):
+        empty_xml = XML("""
+                        <rsp>
+                            <photos />
+                        </rsp>""")
         self.proxy = Mock('FlickrAPI')
+        self.proxy.photos_recentlyUpdated.mock_returns = empty_xml
+
         self.index = FlickrIndex(self.proxy)
 
     def tearDown(self):
@@ -109,7 +135,7 @@ class IndexTests(unittest.TestCase):
         """Empty Flickr index"""
 
         assert self.index.last_update == 1
-        assert not self.index.photos
+        assert not self.index.keys()
 
     def test_refresh_fail_response(self):
         """Failed refresh from Flickr"""
@@ -121,7 +147,7 @@ class IndexTests(unittest.TestCase):
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
 
         self.index.refresh()
-        assert not self.index.photos
+        assert not self.index.keys()
 
     XML_DATA = {
         2717638353: {
@@ -179,7 +205,7 @@ class IndexTests(unittest.TestCase):
         minimock.mock('httplib2.Http.request', returns_iter=responses)
     
     def _check_photo_data(self, photos):
-        assert len(photos) == len(self.XML_DATA)
+        assert len(photos) == len(self.XML_DATA), "len(photos) == %u, len(self.XML_DATA) == %u" % (len(photos), len(self.XML_DATA))
 
         for id, values in self.XML_DATA.iteritems():
             for name, result in values.iteritems():
@@ -196,7 +222,7 @@ class IndexTests(unittest.TestCase):
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
 
         self.index.refresh()
-        assert not self.index.photos
+        assert not self.index.keys()
 
     def test_refresh_single_page(self):
         """Single page, multiple photos"""
@@ -215,7 +241,7 @@ class IndexTests(unittest.TestCase):
 
         self.index.refresh()
 
-        self._check_photo_data(self.index.photos)
+        self._check_photo_data(self.index)
         assert self.index.last_update == 1227123744
 
     def test_refresh_multi_page(self):
@@ -241,13 +267,14 @@ class IndexTests(unittest.TestCase):
                                 <photo farm="3" id="2658720703" isfamily="0" isfriend="0" ispublic="1" lastupdate="1226520673" o_height="1500" o_width="1000" originalformat="jpg" originalsecret="yyyyyyyyyy" owner="25046991@N00" secret="yyyyyyyyyy" server="2126" title="16.jpg" />
                             </photos>
                         </rsp>""")
+        self.proxy.photos_recentlyUpdated.mock_returns = None
         self.proxy.photos_recentlyUpdated.mock_returns_iter = iter([photos_xml_1, photos_xml_2, photos_xml_3])
 
         self._mock_photos_http()
 
         self.index.refresh()
 
-        self._check_photo_data(self.index.photos)
+        self._check_photo_data(self.index)
         assert self.index.last_update == 1227123744
 
     def test_refresh_duplicate(self):
@@ -267,15 +294,15 @@ class IndexTests(unittest.TestCase):
 
         self._mock_photos_http()
         self.index.refresh()
-        self._check_photo_data(self.index.photos)
+        self._check_photo_data(self.index)
 
         # Make a noticable change that isn't reflected in the user data.
 
-        self.index.photos[2717638353].original_format = 'gif'
+        self.index[2717638353].original_format = 'gif'
         
         # Refresh again...
 
         self._mock_photos_http()
         self.index.refresh()
 
-        assert self.index.photos[2717638353].original_format == 'gif'
+        assert self.index[2717638353].original_format == 'gif'
