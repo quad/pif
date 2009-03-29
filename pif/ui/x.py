@@ -280,6 +280,7 @@ class Preview:
 
         self.progress.props.fraction = 0.0
         self.progress.props.text = ''
+        self.glade.get_widget('button_ok').set_sensitive(True)
 
     def on_close(self, *args):
         self.upload = [fn
