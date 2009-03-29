@@ -129,7 +129,6 @@ class Preview:
         view_upload = _('upload')
 
         # Preload the new view with stub images.
-        self.progress = self.glade.get_widget('progressbar')
         gobject.idle_add(self._load_images(view_new, filenames).next)
 
         self.window = self.glade.get_widget('window')
@@ -231,30 +230,29 @@ class Preview:
         self.thumb_loader = ThumbnailLoader(lambda fn, user_data: self.thumb_queue.put(user_data))
 
         # Load the stubs (this takes time, so disable the view).
-        view.set_sensitive(False)
-        self.progress.props.text = 'Scanning...'
-
         for fn in filenames:
             self._view_add(view, fn)
 
             num_of_images = len(view.get_model())
 
-            self.progress.pulse()
-            self.progress.props.text = "%u images scanned" % num_of_images
+            self.set_status("%u images scanned" % num_of_images)
             self.window.props.title = "%u images (scanning) - pif" % num_of_images
 
             yield True
-
-        self.window.props.title = "%u images - pif" % num_of_images
-        view.set_sensitive(True)
 
         # Load the thumbnails.
         gobject.idle_add(self.thumb_loader.start)
         gobject.idle_add(self._display_thumbs(num_of_images).next)
 
+        # Finalize the UI for user input.
+        self.glade.get_widget('button_ok').set_sensitive(True)
+        self.window.props.title = "%u images - pif" % num_of_images
+        view.set_sensitive(True)
+
     def _display_thumbs(self, num_of_images):
         cache = self.thumb_loader
         queue = self.thumb_queue
+
         count = 0
 
         while count < num_of_images:
@@ -269,8 +267,7 @@ class Preview:
                     store[p] = (fn, bn, cache[fn])
 
                 count += 1
-                self.progress.props.fraction = float(count) / num_of_images
-                self.progress.props.text = "%u of %u images loaded" % (count, num_of_images)
+                self.set_status("%u of %u images loaded" % (count, num_of_images), float(count) / num_of_images)
 
                 queue.task_done()
             except Queue.Empty:
@@ -278,11 +275,24 @@ class Preview:
 
             yield True
 
-        self.progress.props.fraction = 0.0
-        self.progress.props.text = ''
-        self.glade.get_widget('button_ok').set_sensitive(True)
+        self.set_status(None)
 
-    def on_close(self, *args):
+    def set_status(self, status, fraction=None):
+        progress = self.glade.get_widget('progressbar')
+        ok = self.glade.get_widget('button_ok')
+
+        if status:
+            progress.props.text = status
+
+            if fraction:
+                progress.props.fraction = fraction
+            else:
+                progress.pulse()
+        else:
+            progress.props.fraction = 0.0
+            progress.props.text = ''
+
+    def on_close(self, widget):
         self.upload = [fn
                        for fn, bn, pb in self.glade.get_widget('view_upload').get_model()
                        if fn]

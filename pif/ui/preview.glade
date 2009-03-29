@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Mon Mar 30 01:52:27 2009 -->
+<!--Generated with glade3 3.4.5 on Mon Mar 30 02:03:37 2009 -->
 <glade-interface>
   <widget class="GtkWindow" id="window">
     <property name="width_request">620</property>
@@ -32,6 +32,7 @@
                         <child>
                           <widget class="GtkIconView" id="view_new">
                             <property name="visible">True</property>
+                            <property name="sensitive">False</property>
                             <property name="can_focus">True</property>
                             <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
                             <signal name="drag_data_get" handler="on_view_drag_data_get"/>
@@ -204,6 +205,7 @@
                     <property name="label" translatable="yes">gtk-cancel</property>
                     <property name="use_stock">True</property>
                     <property name="response_id">0</property>
+                    <signal name="clicked" handler="on_close"/>
                   </widget>
                 </child>
                 <child>
