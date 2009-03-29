@@ -3,34 +3,32 @@
 from setuptools import setup
 
 setup(
-    name = 'pif',
-    version = '9.1',
+    name='pif',
+    version='10.3',
 
-    packages = ['pif',],
-    package_data = {
+    packages=['pif',],
+    package_data={
         'pif': ['flickr-api.key'],
     },
 
-    install_requires = [
+    install_requires=[
         'flickrapi',
         'httplib2',
+        'simplejson',
         'threadpool',
     ],
 
-    entry_points = {
+    entry_points={
         'console_scripts': [
-            'pif = pif.cmd:run',
-            'pif-add = pif.cmd:add',
-            'pif-status = pif.cmd:status',
-            'pif-refresh = pif.cmd:refresh',
-            'pif-rebuild = pif.cmd:rebuild',
+            'pif = pif.ui.console:run',
+            'xpif = pif.ui.x:run',
         ]
     },
 
-    tests_require = [
+    tests_require=[
         'MiniMock',
         'nose',
     ],
 
-    test_suite = 'nose.collector',
+    test_suite='nose.collector',
 )

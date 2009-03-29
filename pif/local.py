@@ -1,81 +1,50 @@
 from __future__ import with_statement
 
-import hashlib
-import itertools
+import logging
 import os
-import re
+import os.path
+import shelve
 
 import PIL.Image
 
 import pif
 
-class LocalFile:
-    def __init__(self, filename, last_modified):
-        self.filename = filename
-        self.last_modified = last_modified
+LOG = logging.getLogger(__name__)
 
-class LocalHash:
-    def __init__(self, hash):
-        self.hash = hash
+class FileIndex(object, shelve.DbfilenameShelf):
+    def __init__(self, filename):
+        shelve.DbfilenameShelf.__init__(self, filename)
 
-class LocalIndex:
-    EXTENSIONS = ('gif',
-                  'jpeg', 'jpg',
-                  'png',)
-
-    RE_IMAGES = re.compile(r".*\.(%s)$" % '|'.join(EXTENSIONS),
-                           re.IGNORECASE)
-
-    def __init__(self, dirs=None):
-        self.dirs = dirs if dirs else []
-        self.files = {}
-        self.hashes = {}
-
-    def scan_file(self, filename):
-        statinfo = os.stat(filename)
-        lf = self.files.get(filename, LocalFile(filename, 0))
+    def __getitem__(self, filename):
+        if filename in self:
+            last_modified, shorthash = shelve.DbfilenameShelf.__getitem__(self, filename)
+        else:
+            last_modified, shorthash = None, None
 
         # Abort if the file hasn't been modified.
-        if lf.last_modified == statinfo.st_mtime:
-            return
+        statinfo = os.stat(filename)
+
+        if last_modified == statinfo.st_mtime:
+            return shorthash
 
         # Validate the potential image.
         image = PIL.Image.open(filename)
         image.verify()
 
-        # Rescan the file to update the hash entry.
+        # Gather the metadata to create the shorthash.
         with file(filename) as f:
-            data = f.read()
+            f.seek(-pif.TAILHASH_SIZE, 2)
+            tailhash = f.read()
 
-            hash_full = hashlib.sha512(data).digest()
-            hash_tail = hashlib.sha512(data[-pif.TAILHASH_SIZE:]).digest()
+        shorthash = pif.make_shorthash(
+            tailhash,
+            image.format,
+            statinfo.st_size,
+            image.size[0],
+            image.size[1],
+        )
 
-            del data
+        # Cache the shorthash.
+        self[filename] = (statinfo.st_mtime, shorthash)
 
-        lh = self.hashes.get(hash, LocalHash(hash_full))
-
-        lh.format = image.format.lower()
-        lh.size = statinfo.st_size
-        lh.tailhash = hash_tail
-        lh.width, lh.height = image.size
-
-        lf.hash = lh
-        lf.last_modified = statinfo.st_mtime
-
-        self.files[filename] = lf
-        self.hashes[hash_full] = lh
-
-    def refresh(self):
-        # Search directory structure for all image files.
-
-        def images_in_dir(directory):
-            for root, dirs, files in os.walk(directory):
-                for fn in filter(self.RE_IMAGES.match, files):
-                    yield os.path.abspath(os.path.join(root, fn))
-
-        image_files = itertools.chain(*(images_in_dir(d) for d in self.dirs))
-
-        # Invalid files that exist, and new files should be updated.
-
-        for fn in image_files:
-            self.scan_file(fn)
+        return shorthash

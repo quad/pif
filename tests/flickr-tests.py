@@ -1,4 +1,6 @@
 import hashlib
+import os
+import tempfile
 import unittest
 
 from xml.etree.ElementTree import XML
@@ -33,7 +35,7 @@ class OnlineProxyTests(unittest.TestCase):
         import urllib
         minimock.mock('urllib.urlopen', returns=frob)
 
-        get_proxy(key = 'xyzzy')
+        get_proxy(key='xyzzy')
 
     @raises(flickrapi.FlickrError)
     def test_invalid_secret(self):
@@ -48,7 +50,7 @@ class OnlineProxyTests(unittest.TestCase):
         import urllib
         minimock.mock('urllib.urlopen', returns=frob)
 
-        get_proxy(secret = 'xyzzy')
+        get_proxy(secret='xyzzy')
 
     @raises(IOError)
     def test_offline(self):
@@ -81,41 +83,21 @@ class OnlineProxyTests(unittest.TestCase):
 
         minimock.mock('flickrapi.FlickrAPI.get_token_part_one')
 
-        def bad_api(auth_response):
+        def _bad_api(auth_response):
             raise flickrapi.FlickrError('Error: 108')
 
-        minimock.mock('flickrapi.FlickrAPI.get_token_part_two', returns_func=bad_api)
+        minimock.mock('flickrapi.FlickrAPI.get_token_part_two', returns_func=_bad_api)
 
         self.hit_cb = False
 
-        def cb():
+        def _cb():
             if self.hit_cb:
                 return True
             else:
                 self.hit_cb = True
 
-        self.assertRaises(flickrapi.FlickrError, get_proxy, wait_callback=cb)
+        self.assertRaises(flickrapi.FlickrError, get_proxy, wait_callback=_cb)
         assert self.hit_cb
-
-class EmptyIndexTests(unittest.TestCase):
-    def test_auto_refresh(self):
-        """FlickrIndex refresh on construction."""
-
-        photo_xml = XML("""
-                        <rsp>
-                            <photos page="1" pages="1" perpage="100" total="1">
-                                <photo farm="4" id="2717638353" isfamily="0" isfriend="0" ispublic="1" lastupdate="1227123744" o_height="1024" o_width="1544" originalformat="jpg" originalsecret="1111111111" owner="25046991@N00" secret="xxxxxxxxxx" server="3071" title="87680027.JPG" />
-                            </photos>
-                        </rsp>""")
-        proxy = Mock('FlickrAPI')
-        proxy.photos_recentlyUpdated.mock_returns = photo_xml
-
-        # TODO: Mock the HTTP request for the photo. Right now this results in a
-        # ServerNotFoundError from httplib2.
-
-        index = FlickrIndex(proxy)
-
-        assert index.last_update == 1227123744, index.last_update
 
 class IndexTests(unittest.TestCase):
     def setUp(self):
@@ -126,10 +108,12 @@ class IndexTests(unittest.TestCase):
         self.proxy = Mock('FlickrAPI')
         self.proxy.photos_recentlyUpdated.mock_returns = empty_xml
 
-        self.index = FlickrIndex(self.proxy)
+        self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
+        self.index = FlickrIndex(self.proxy, filename=self.index_fn)
 
     def tearDown(self):
         minimock.restore()
+        os.remove(self.index_fn)
 
     def test_empty(self):
         """Empty Flickr index"""
@@ -147,7 +131,8 @@ class IndexTests(unittest.TestCase):
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
 
         self.index.refresh()
-        assert not self.index.keys()
+        assert len(self.index.keys()) == 1, self.index.keys()   # Should only be 'last_update'
+        assert self.index.last_update == 1
 
     XML_DATA = {
         2717638353: {
@@ -197,7 +182,13 @@ class IndexTests(unittest.TestCase):
 
         for id, values in self.XML_DATA.iteritems():
             data = ('*' * pif.TAILHASH_SIZE + str(id))[:512]
-            values['tailhash'] = hashlib.sha512(data).digest()
+            values['shorthash'] = pif.make_shorthash(
+                data,
+                values['original_format'],
+                values['size'],
+                values['width'],
+                values['height'],
+            )
 
             responses.append((MockResponse(206, values['size']), data))
 
@@ -205,12 +196,12 @@ class IndexTests(unittest.TestCase):
         minimock.mock('httplib2.Http.request', returns_iter=responses)
     
     def _check_photo_data(self, photos):
-        assert len(photos) == len(self.XML_DATA), "len(photos) == %u, len(self.XML_DATA) == %u" % (len(photos), len(self.XML_DATA))
+        assert (len(photos) - 1) == len(self.XML_DATA), "len(photos) == %u, len(self.XML_DATA) == %u" % (len(photos), len(self.XML_DATA))
 
         for id, values in self.XML_DATA.iteritems():
-            for name, result in values.iteritems():
-                assert getattr(photos[id], name) == result, "FlickrPhoto(%u).%s != %s (is %s)" % \
-                        (id, name, result, getattr(photos[id], name))
+            shorthash = values['shorthash']
+            assert photos.has_key(shorthash)
+            assert id in photos[shorthash], id
 
     def test_refresh_empty_response(self):
         """Empty response from Flickr"""
@@ -222,7 +213,7 @@ class IndexTests(unittest.TestCase):
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
 
         self.index.refresh()
-        assert not self.index.keys()
+        assert len(self.index.keys()) == 1, self.index.keys()   # Should only be 'last_update'
 
     def test_refresh_single_page(self):
         """Single page, multiple photos"""
@@ -298,11 +289,14 @@ class IndexTests(unittest.TestCase):
 
         # Make a noticable change that isn't reflected in the user data.
 
-        self.index[2717638353].original_format = 'gif'
+        self.index['abc123'] = ()
         
         # Refresh again...
 
         self._mock_photos_http()
         self.index.refresh()
 
-        assert self.index[2717638353].original_format == 'gif'
+        assert self.index['abc123'] == ()
+
+    # TODO: Test progress callbacks.
+    # TODO: Test .add() appending to the tuples.
