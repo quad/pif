@@ -303,7 +303,7 @@ def run():
     gtk.main()
 
     LOG.debug("Upload: %s" % preview.upload)
-    LOG.debug("Ignore: %s" % preview.skip)
+    LOG.debug("Ignore: %s" % preview.ignore)
 
     file_index.sync()
     flickr_index.sync()
