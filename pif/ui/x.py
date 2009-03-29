@@ -124,7 +124,7 @@ class Preview:
 
             return view
 
-        view_skip = _('skip')
+        view_ignore = _('ignore')
         view_new = _('new')
         view_upload = _('upload')
 
@@ -234,47 +234,57 @@ class Preview:
         for fn in filenames:
             self._view_add(view, fn)
 
+            num_of_images = len(view.get_model())
+
             self.progress.pulse()
-            self.window.props.title = "%u images (scanning) - pif" % len(view.get_model())
+            self.progress.props.text = "%u images scanned" % num_of_images
+            self.window.props.title = "%u images (scanning) - pif" % num_of_images
+
+            yield True
+
+        self.window.props.title = "%u images - pif" % num_of_images
+        view.set_sensitive(True)
+
+        # Load the thumbnails.
+        gobject.idle_add(self.thumb_loader.start)
+        gobject.idle_add(self._display_thumbs(num_of_images).next)
+
+    def _display_thumbs(self, num_of_images):
+        cache = self.thumb_loader
+        queue = self.thumb_queue
+        count = 0
+
+        while count < num_of_images:
+            try:
+                ref = queue.get(block=False)
+
+                store = ref.get_model()
+                p = ref.get_path()
+
+                if p:
+                    fn, bn, pb = store[p]
+                    store[p] = (fn, bn, cache[fn])
+
+                count += 1
+                self.progress.props.fraction = float(count) / num_of_images
+                self.progress.props.text = "%u of %u images loaded" % (count, num_of_images)
+
+                queue.task_done()
+            except Queue.Empty:
+                pass
 
             yield True
 
         self.progress.props.fraction = 0.0
         self.progress.props.text = ''
-        self.window.props.title = "%u images - pif" % len(view.get_model())
-        view.set_sensitive(True)
-
-        # Load the thumbnails.
-        gobject.idle_add(self.thumb_loader.start)
-        gobject.idle_add(self._display_thumbs)
-
-    def _display_thumbs(self):
-        cache = self.thumb_loader
-        queue = self.thumb_queue
-
-        try:
-            ref = queue.get(block=False)
-
-            store = ref.get_model()
-            p = ref.get_path()
-
-            if p:
-                fn, bn, pb = store[p]
-                store[p] = (fn, bn, cache[fn])
-
-            queue.task_done()
-        except Queue.Empty:
-            pass
-
-        return True
 
     def on_close(self, *args):
         self.upload = [fn
                        for fn, bn, pb in self.glade.get_widget('view_upload').get_model()
                        if fn]
-        self.skip = [fn
-                       for fn, bn, pb in self.glade.get_widget('view_skip').get_model()
-                       if fn]
+        self.ignore = [fn
+                       for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
+                     if fn]
 
         self.thumb_loader.stop()
         gtk.main_quit()
@@ -293,7 +303,7 @@ def run():
     gtk.main()
 
     LOG.debug("Upload: %s" % preview.upload)
-    LOG.debug("Skip: %s" % preview.skip)
+    LOG.debug("Ignore: %s" % preview.skip)
 
     file_index.sync()
     flickr_index.sync()
