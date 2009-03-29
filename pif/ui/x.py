@@ -142,11 +142,12 @@ class Preview:
         for p in view.get_selected_items():
             fn, bn, pb = store[p]
 
-            gtk.show_uri(
-                gtk.gdk.screen_get_default(),
-                path2uri(fn),
-                gtk.get_current_event_time()
-            )
+            if fn:
+                gtk.show_uri(
+                    gtk.gdk.screen_get_default(),
+                    path2uri(fn),
+                    gtk.get_current_event_time()
+                )
 
     def on_view_drag_data_get(self, view, context, selection, info, timestamp):
         store = view.get_model()
@@ -177,9 +178,10 @@ class Preview:
                 self._view_remove(view, p)
 
     def _view_init(self, view):
-        # Detach the view's columns.
-        view.props.text_column = -1
+        # Make the view appear empty.
+        view.props.can_focus = False
         view.props.pixbuf_column = -1
+        view.props.text_column = -1
 
         # Clear out the view's store.
         store = view.get_model()
@@ -195,8 +197,9 @@ class Preview:
         # If the view is stubbed, then reactivate it.
         if view.get_text_column() == -1:
             store.clear()
-            view.props.text_column = 1
+            view.props.can_focus = True
             view.props.pixbuf_column = 2
+            view.props.text_column = 1
 
         # Try to find a cached thumbnail.
         if self.thumb_loader.has_key(filename):
@@ -284,7 +287,7 @@ class Preview:
                        if fn]
         self.ignore = [fn
                        for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
-                     if fn]
+                       if fn]
 
         self.thumb_loader.stop()
         gtk.main_quit()
