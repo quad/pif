@@ -17,16 +17,21 @@ LOG = logging.getLogger(__name__)
 
 def path2uri(pathname):
     """Convert a pathname to a GIO compliant URI."""
+
     vfs = gio.vfs_get_local()
     f = vfs.get_file_for_path(pathname)
+
     return f.get_uri()
 
 def uri2path(uri):
     """Convert a GIO compliant URI to a pathname."""
+
     vfs = gio.vfs_get_local()
     f = vfs.get_file_for_uri(uri)
+
     return f.get_path()
 
+# Actions for EXIF orientation codes.
 _exif_orient_acts = {
     1: lambda pb: pb,
     2: lambda pb: pb.flip(True),
