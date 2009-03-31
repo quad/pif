@@ -8,12 +8,16 @@ def proxy_callback():
     LOG.info('Waiting for authorization from Flickr...')
     time.sleep(5)
 
+def progress_callback(state, meta):
+    a, b = meta
+    LOG.debug("Flickr: %s, %u / %u" % (state, a, b))
+
 def run():
     OPTIONS.add_option('-m', '--mark', action='store_true',
                        help='mark files as uploaded')
     options, args = OPTIONS.parse_args()
 
-    indexes, images = common_run((options, args), proxy_callback)
+    indexes, images = common_run((options, args), proxy_callback, progress_callback)
     file_index, flickr_index = indexes
 
     if options.mark:

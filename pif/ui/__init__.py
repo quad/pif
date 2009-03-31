@@ -52,20 +52,13 @@ def open_indexes(proxy):
 
     return pif.local.FileIndex(FILE_INDEX), pif.flickr.FlickrIndex(proxy, FLICKR_INDEX)
 
-def sync_flickr(flickr_index):
-    def _cb(state, meta):
-        a, b = meta
-        LOG.debug("Flickr: %s, %u / %u" % (state, a, b))
-
-    flickr_index.refresh(progress_callback=_cb)
-
 def normalized_filelist(filenames):
     for fn in filenames:
         if os.path.isfile(fn):
             yield os.path.abspath(fn)
         elif os.path.isdir(fn):
             for root, dirs, files in os.walk(fn):
-                for fn in filter(RE_IMAGES.match, files):
+                for fn in filter(RE_IMAGES.match, sorted(files)):
                     yield os.path.abspath(os.path.join(root, fn))
         else:
             LOG.warn("%s is not a file or a directory." % fn)
@@ -79,7 +72,7 @@ def images_not_uploaded(indexes, filenames):
         else:
             yield fn
 
-def common_run(opts, proxy_callback):
+def common_run(opts, proxy_callback, progress_callback):
     options, args = opts
 
     if 'DEBUG' in os.environ:
@@ -101,7 +94,7 @@ def common_run(opts, proxy_callback):
     file_index, flickr_index = indexes
 
     if not options.no_sync:
-        sync_flickr(flickr_index)
+        flickr_index.refresh(progress_callback)
 
     # Find images to be uploaded.
     images = normalized_filelist(args)

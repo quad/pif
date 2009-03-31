@@ -1,5 +1,4 @@
 import logging
-import os.path
 import Queue
 import threading
 
@@ -48,58 +47,19 @@ def exif_orient(pixbuf):
     else:
         return pixbuf
 
-class ThumbnailLoader(dict):
-    def __init__(self, notify_callback):
-        self.callback = notify_callback
-        self.queue = Queue.Queue()
-
-        self.thread = threading.Thread(target=self._load_thumbs)
-        self.thread.setDaemon(True)
-
-        self.start = self.thread.start
-
-    def stop(self):
-        # Drain the thumbnail queue, and cancel it.
-        try:
-            while self.queue.get(block=False):
-                self.queue.task_done()
-        except Queue.Empty:
-            self.queue.put((None, None))
-            if self.thread.isAlive():
-                self.queue.join()
-
-    def request(self, filename, user_data):
-        self.queue.put(
-            (filename, user_data)
-        )
-
-    def _load_thumbs(self):
-        while True:
-            fn, user_data = self.queue.get()
-
-            if not fn:
-                self.queue.task_done()
-                break
-
-            if not self.has_key(fn):
-                self[fn] = exif_orient(
-                    gtk.gdk.pixbuf_new_from_file_at_size(fn, 128, 128)
-                )
-
-            self.callback(fn, user_data)
-            self.queue.task_done()
-
 class Preview:
     XML = pkg_resources.resource_string(__name__, 'preview.glade')
     PIXBUF_UNKNOWN = gtk.icon_theme_get_default().load_icon('gtk-missing-image', gtk.ICON_SIZE_DIALOG, 0).scale_simple(128, 128, gtk.gdk.INTERP_BILINEAR)
 
-    def __init__(self, filenames):
+    def __init__(self):
+        self.refs = {}
+        self.thumbs = {}
+
         # Hookup the widgets through Glade.
         self.glade = gtk.glade.xml_new_from_buffer(self.XML, len(self.XML))
         self.glade.signal_autoconnect(self)
 
         # Setup the views.
-
         def _(view_name):
             # Setup the store.
             store = gtk.ListStore(
@@ -107,35 +67,30 @@ class Preview:
                 gobject.TYPE_STRING,    # Basename
                 gtk.gdk.Pixbuf,         # Image
             )
-            store.set_sort_column_id(0, gtk.SORT_ASCENDING)
 
             # Attach the view to the store.
             view = self.glade.get_widget('view_' + view_name)
             view.set_model(store)
 
             # Prepare for Drag and Drop
-
             dnd_target = ('text/uri-list', gtk.TARGET_SAME_APP | gtk.TARGET_OTHER_WIDGET, 0)
-
             view.enable_model_drag_source(gtk.gdk.BUTTON1_MASK, (dnd_target,), gtk.gdk.ACTION_MOVE)
             view.enable_model_drag_dest((dnd_target,), gtk.gdk.ACTION_DEFAULT)
 
+            # "Empty" the view.
             self._view_init(view)
 
-            return view
+        _('ignore')
+        _('new')
+        _('upload')
 
-        view_ignore = _('ignore')
-        view_new = _('new')
-        view_upload = _('upload')
-
-        # Preload the new view with stub images.
-        gobject.idle_add(self._load_images(view_new, filenames).next)
-
+        # Show the UI!
         self.window = self.glade.get_widget('window')
         self.window.show_all()
 
     def on_item_activated(self, view, path):
-        """Open selected images."""
+        """Open selected items in a view."""
+
         store = view.get_model()
 
         for p in view.get_selected_items():
@@ -149,6 +104,8 @@ class Preview:
                 )
 
     def on_view_drag_data_get(self, view, context, selection, info, timestamp):
+        """Provide the file URIs used for items in drag and drop."""
+
         store = view.get_model()
 
         selection.set_uris(
@@ -156,6 +113,8 @@ class Preview:
         )
 
     def on_view_drag_data_received(self, view, context, x, y, selection, info, timestamp):
+        """Add items from another view via drag and drop."""
+
         store = view.get_model()
 
         for uri in selection.get_uris():
@@ -165,9 +124,11 @@ class Preview:
             context.finish(True, True, timestamp)
 
     def on_view_drag_data_delete(self, view, context):
-        # Delete using TreeRowReferences to maintain reference intergrity.
+        """Delete items added to another view via drag and drop."""
 
         store = view.get_model()
+
+        # Use TreeRowReferences to maintain reference intergrity.
         refs = [gtk.TreeRowReference(store, p) for p in view.get_selected_items()]
 
         for r in refs:
@@ -177,6 +138,8 @@ class Preview:
                 self._view_remove(view, p)
 
     def _view_init(self, view):
+        """Initialize a view."""
+
         # Make the view appear empty.
         view.props.can_focus = False
         view.props.pixbuf_column = -1
@@ -191,6 +154,8 @@ class Preview:
         store.append((None, None, None))
 
     def _view_add(self, view, filename):
+        """Add an image to a view."""
+
         store = view.get_model()
         
         # If the view is stubbed, then reactivate it.
@@ -200,86 +165,116 @@ class Preview:
             view.props.pixbuf_column = 2
             view.props.text_column = 1
 
-        # Try to find a cached thumbnail.
-        if self.thumb_loader.has_key(filename):
-            pb = self.thumb_loader[filename]
-        else:
-            pb = self.PIXBUF_UNKNOWN
-
         # Load the file into the store.
         iter = store.append((
             filename,
-            os.path.basename(filename),
-            pb
+            gobject.filename_display_basename(filename),
+            self.thumbs.get(filename, self.PIXBUF_UNKNOWN)
         ))
-
-        if pb == self.PIXBUF_UNKNOWN:
-            self.thumb_loader.request(filename, gtk.TreeRowReference(store, store.get_path(iter)))
+        self.refs[filename] = gtk.TreeRowReference(store, store.get_path(iter))
 
     def _view_remove(self, view, path):
+        """Remove an image from a view."""
+
         store = view.get_model()
+
+        fn, bn, pb_old = store[path]
         del store[path]
 
         # If the store is empty, then add a stub entry.
         if len(store) == 0:
             self._view_init(view)
 
-    def _load_images(self, view, filenames):
-        # Warm up the thumbnail loader.
-        self.thumb_queue = Queue.Queue()
-        self.thumb_loader = ThumbnailLoader(lambda fn, user_data: self.thumb_queue.put(user_data))
+    def flickr_proxy_tcb(self):
+        """Inform about waiting for Flickr."""
 
-        # Load the stubs (this takes time, so disable the view).
-        for fn in filenames:
+        gtk.gdk.threads_enter()
+        self.set_status('Waiting for authorization from Flickr...')
+        gtk.gdk.threads_leave()
+
+    def flickr_progress_cb(self, state, meta):
+        """Update the progress bar from the Flickr update."""
+
+        msgs = {
+            'update': 'Loading updates from Flickr...',
+            'index': 'Indexing photos on Flickr...',
+        }
+
+        a, b = meta
+        self.set_status(
+            msgs[state],
+            (float(a) / float(b))
+        )
+
+    def loading_images_cb(self, queue):
+        """Load images into the new view."""
+
+        try:
+            fn = queue.get(block=False)
+        except Queue.Empty:
+            return True
+
+        queue.task_done()
+
+        view = self.glade.get_widget('view_new')
+        count = len(view.get_model())
+
+        if fn:
             self._view_add(view, fn)
 
-            num_of_images = len(view.get_model())
+            self.set_status("%u images scanned" % count)
+            self.window.props.title = "%u images (scanning) - pif" % count
 
-            self.set_status("%u images scanned" % num_of_images)
-            self.window.props.title = "%u images (scanning) - pif" % num_of_images
+            return True
+        else:
+            self.glade.get_widget('button_ok').set_sensitive(True)
+            self.set_status(None)
+            self.window.props.title = "%u images - pif" % count
 
-            yield True
+            views = map(self.glade.get_widget, ('view_ignore', 'view_new', 'view_upload'))
+            map(lambda v: v.set_sensitive(True), views)
 
-        # Load the thumbnails.
-        gobject.idle_add(self.thumb_loader.start)
-        gobject.idle_add(self._display_thumbs(num_of_images).next)
+    def loading_thumbs_cb(self, queue):
+        """Load thumbnails into the appropriate view."""
 
-        # Finalize the UI for user input.
-        self.glade.get_widget('button_ok').set_sensitive(True)
-        self.window.props.title = "%u images - pif" % num_of_images
-        view.set_sensitive(True)
+        try:
+            results = queue.get(block=False)
+        except Queue.Empty:
+            return True
 
-    def _display_thumbs(self, num_of_images):
-        cache = self.thumb_loader
-        queue = self.thumb_queue
+        queue.task_done()
 
-        count = 0
+        if results:
+            fn, pb_new = results
 
-        while count < num_of_images:
-            try:
-                ref = queue.get(block=False)
+            self.thumbs[fn] = pb_new
 
-                store = ref.get_model()
+            if self.refs.has_key(fn):
+                ref = self.refs[fn]
+
                 p = ref.get_path()
+                store = ref.get_model()
 
-                if p:
-                    fn, bn, pb = store[p]
-                    store[p] = (fn, bn, cache[fn])
+                if p and store:
+                    fn, bn, pb_old = store[p]
+                    store[p] = (fn, bn, pb_new)
 
-                count += 1
-                self.set_status("%u of %u images loaded" % (count, num_of_images), float(count) / num_of_images)
+                self.set_status(
+                    "%u of %u thumbnails loaded" % (len(self.thumbs), len(self.refs)),
+                    (float(len(self.thumbs)) / float(len(self.refs)))
+                )
+            else:
+                LOG.critical("Icon reference miss on %s (threading issue)" % fn)
 
-                queue.task_done()
-            except Queue.Empty:
-                pass
+            return True
 
-            yield True
-
+    def loading_done_cb(self):
         self.set_status(None)
 
     def set_status(self, status, fraction=None):
+        """Update the progress bar."""
+
         progress = self.glade.get_widget('progressbar')
-        ok = self.glade.get_widget('button_ok')
 
         if status:
             progress.props.text = status
@@ -292,32 +287,141 @@ class Preview:
             progress.props.fraction = 0.0
             progress.props.text = ''
 
-    def on_close(self, widget):
-        self.upload = [fn
-                       for fn, bn, pb in self.glade.get_widget('view_upload').get_model()
-                       if fn]
-        self.ignore = [fn
-                       for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
-                       if fn]
+    def on_ok(self, button):
+        upload = [fn
+                  for fn, bn, pb in self.glade.get_widget('view_upload').get_model()
+                  if fn]
+        ignore = [fn
+                  for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
+                  if fn]
 
-        self.thumb_loader.stop()
-        gtk.main_quit()
+        LOG.debug("Upload: %s" % upload)
+        LOG.debug("Ignore: %s" % ignore)
 
-def proxy_callback():
-    LOG.info('Waiting for authorization from Flickr...')
-    time.sleep(5)
+    on_close = gtk.main_quit
+
+class FlickrUpdater(threading.Thread):
+    """Worker thread for updating from Flickr."""
+
+    def __init__(self, proxy_callback=None, progress_callback=None, done_callback=None):
+        threading.Thread.__init__(self)
+
+        self.proxy_callback = proxy_callback
+        self.progress_callback = progress_callback
+        self.done_callback = done_callback
+
+        self.setDaemon(True)
+
+    def run(self):
+        indexes, filenames = common_run(self.opts, self.proxy_callback, self.progress_callback)
+        self.file_index, self.flickr_index = indexes
+
+        if self.done_callback:
+            self.done_callback(indexes, filenames)
+
+    def start(self, opts):
+        self.opts = opts
+
+        threading.Thread.start(self)
+
+class ImageLoader(threading.Thread):
+    """Worker thread for scanning the filesystem for images."""
+
+    def __init__(self, loading_callback=None, done_callback=None):
+        threading.Thread.__init__(self)
+
+        self.loading_callback = loading_callback
+        self.done_callback = done_callback
+
+        self.setDaemon(True)
+
+    def run(self):
+        queue = Queue.Queue()
+
+        if self.loading_callback:
+            self.loading_callback(queue)
+
+        fns = []
+        for n, fn in enumerate(self.filenames):
+            fns.append(fn)
+            queue.put(fn)
+        queue.put(None)
+
+        queue.join()
+
+        if self.done_callback:
+            self.done_callback(fns)
+
+    def start(self, filenames):
+        self.filenames = filenames
+
+        threading.Thread.start(self)
+
+class ThumbLoader(threading.Thread):
+    """Worker thread for loading thumbnails."""
+
+    def __init__(self, loading_callback=None, done_callback=None):
+        threading.Thread.__init__(self)
+
+        self.loading_callback = loading_callback
+        self.done_callback = done_callback
+
+        self.setDaemon(True)
+
+    def run(self):
+        queue = Queue.Queue()
+
+        if self.loading_callback:
+            self.loading_callback(queue)
+
+        for fn in self.filenames:
+            queue.put((
+                fn,
+                exif_orient(gtk.gdk.pixbuf_new_from_file_at_size(fn, 128, 128))
+            ))
+        queue.put(None)
+
+        queue.join()
+
+        if self.done_callback:
+            self.done_callback()
+
+    def start(self, filenames):
+        self.filenames = filenames
+
+        threading.Thread.start(self)
+
+def idle_proxy(func):
+    """Thunk a function into the gobject event loop."""
+
+    def _(proxy):
+        func, args, kwargs = proxy
+        return func(*args, **kwargs)
+
+    return lambda *args, **kwargs: gobject.idle_add(_, (func, args, kwargs))
 
 def run():
-    options, args = OPTIONS.parse_args()
-    indexes, images = common_run((options, args), proxy_callback)
-    file_index, flickr_index = indexes
+    opts = OPTIONS.parse_args()
 
     gtk.gdk.threads_init()
-    preview = Preview(images)
+    preview = Preview()
+
+    t_thumb = ThumbLoader(
+        loading_callback=idle_proxy(preview.loading_thumbs_cb),
+        done_callback=idle_proxy(preview.loading_done_cb)
+    )
+    t_image = ImageLoader(
+        loading_callback=idle_proxy(preview.loading_images_cb),
+        done_callback=t_thumb.start
+    )
+    t_flickr = FlickrUpdater(
+        proxy_callback=preview.flickr_proxy_tcb,
+        progress_callback=idle_proxy(preview.flickr_progress_cb),
+        done_callback=lambda indexes, filenames: t_image.start(filenames)
+    )
+
+    t_flickr.start(opts)
     gtk.main()
 
-    LOG.debug("Upload: %s" % preview.upload)
-    LOG.debug("Ignore: %s" % preview.ignore)
-
-    file_index.sync()
-    flickr_index.sync()
+    t_flickr.file_index.sync()
+    t_flickr.flickr_index.sync()
