@@ -33,7 +33,7 @@ def run():
                 if done:
                     LOG.info("Uploaded %s" % fn)
                 else:
-                    LOG.debug("Uploading %s... (%s%%)" % progress)
+                    LOG.debug("Uploading %s... (%s%%)" % (fn, progress))
 
             if options.dry_run:
                 LOG.info("Uploaded %s" % fn)
