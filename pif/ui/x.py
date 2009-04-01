@@ -1,3 +1,4 @@
+import collections
 import logging
 import Queue
 import threading
@@ -102,17 +103,45 @@ class Preview:
     def on_item_activated(self, view, path):
         """Open selected items in a view."""
 
+        # Lookup the associated viewer for all the items.
+
         store = view.get_model()
+        type_on_uris = collections.defaultdict(list)
 
         for p in view.get_selected_items():
             fn, bn, pb = store[p]
 
             if fn:
-                gtk.show_uri(
-                    gtk.gdk.screen_get_default(),
-                    path2uri(fn),
-                    gtk.get_current_event_time()
-                )
+                type = gio.content_type_guess(fn)
+                type_on_uris[type].append(path2uri(fn))
+
+        # If the same viewer is associated to multiple types, then merge the
+        # associated URIs to be launched.
+        #
+        # This code is convoluted because the gtk.AppInfo type is not hashable.
+        # TODO: Report this as a bug in PyGTK.
+
+        app_on_uris = []
+
+        for type, uris in type_on_uris.items():
+            app = gio.app_info_get_default_for_type(type, True)
+            l_apps = map(lambda x: x[0], app_on_uris)
+
+            if app in l_apps:
+                idx = l_apps.index(app)
+
+                app_on_uris[idx][1].extend(uris)
+            else:
+                app_on_uris.append((app, uris))
+
+        # Launch the associated viewers for all items.
+
+        for app, uris in app_on_uris:
+            if app:
+                if not app.launch_uris(uris):
+                    self.alert("Couldn't launch %s." % app.get_name())
+            else:
+                self.alert("No associated viewer for type '%s'." % type)
 
     def on_view_drag_data_get(self, view, context, selection, info, timestamp):
         """Provide the file URIs used for items in drag and drop."""
@@ -381,6 +410,7 @@ class Preview:
         vbox.reorder_child(ebox, 0)
 
         # Connect events for destroying the pane and exiting the application.
+
         def _(widget):
             widget.destroy()
 
@@ -428,6 +458,8 @@ class Preview:
     def on_close(self, widget):
         """Quit!"""
 
+        # Alert if there are unsaved changes.
+
         views = map(self.glade.get_widget, ('view_ignore', 'view_upload'))
         changed = map(lambda v: v.props.sensitive and self._view_is_active(v), views)
 
@@ -446,6 +478,8 @@ class Preview:
             if resp != gtk.RESPONSE_OK:
                 md.destroy()
                 return
+
+        # Save changes!
 
         if self.file_index:
             self.file_index.sync()
