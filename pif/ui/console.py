@@ -1,6 +1,6 @@
 import logging
 
-from pif.ui import OPTIONS, common_run, upload_images
+from pif.ui import OPTIONS, common_run
 
 LOG = logging.getLogger(__name__)
 
@@ -28,7 +28,16 @@ def run():
 
             LOG.info("\t%s" % fn)
     else:
-        upload_images(images)
+        for fn in images:
+            def _(progress, done):
+                if done:
+                    LOG.info("Uploaded %s" % fn)
+                else:
+                    LOG.debug("Uploading %s... (%s%%)" % progress)
+
+            flickr_index.upload(filename=fn, callback=_)
 
     file_index.sync()
-    flickr_index.sync()
+
+    if not options.dry_run:
+        flickr_index.sync()
