@@ -35,7 +35,10 @@ def run():
                 else:
                     LOG.debug("Uploading %s... (%s%%)" % progress)
 
-            flickr_index.upload(filename=fn, callback=_)
+            if options.dry_run:
+                LOG.info("Uploaded %s" % fn)
+            else:
+                flickr_index.upload(filename=fn, callback=_)
 
     file_index.sync()
 
