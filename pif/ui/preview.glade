@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Tue Mar 31 14:39:43 2009 -->
+<!--Generated with glade3 3.4.5 on Wed Apr  1 15:33:36 2009 -->
 <glade-interface>
   <widget class="GtkWindow" id="window">
     <property name="width_request">620</property>
@@ -8,7 +8,7 @@
     <property name="border_width">12</property>
     <signal name="destroy" handler="on_close"/>
     <child>
-      <widget class="GtkVBox" id="vbox1">
+      <widget class="GtkVBox" id="vbox">
         <property name="visible">True</property>
         <property name="spacing">6</property>
         <child>
@@ -85,7 +85,6 @@
                                 <property name="visible">True</property>
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
-                                <property name="tooltip_text">Ignored Images</property>
                                 <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
                                 <signal name="drag_data_get" handler="on_view_drag_data_get"/>
                                 <signal name="item_activated" handler="on_item_activated"/>
@@ -128,7 +127,6 @@
                                 <property name="visible">True</property>
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
-                                <property name="tooltip_text">Ignored Images</property>
                                 <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
                                 <signal name="drag_data_get" handler="on_view_drag_data_get"/>
                                 <signal name="item_activated" handler="on_item_activated"/>

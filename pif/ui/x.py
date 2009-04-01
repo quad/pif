@@ -11,7 +11,7 @@ import gobject
 import gtk
 import gtk.glade
 
-from pif.ui import OPTIONS, common_run, upload_images
+from pif.ui import OPTIONS, common_run
 
 LOG = logging.getLogger(__name__)
 
@@ -56,7 +56,11 @@ class Preview:
     XML = pkg_resources.resource_string(__name__, 'preview.glade')
     PIXBUF_UNKNOWN = gtk.icon_theme_get_default().load_icon('gtk-missing-image', gtk.ICON_SIZE_DIALOG, 0).scale_simple(128, 128, gtk.gdk.INTERP_BILINEAR)
 
-    def __init__(self):
+    def __init__(self, dry_run=False):
+        self.dry_run = dry_run
+
+        self.file_index = None
+        self.flickr_index = None
         self.refs = {}
         self.thumbs = {}
 
@@ -211,6 +215,14 @@ class Preview:
             (float(a) / float(b))
         )
 
+    def flickr_indexes_cb(self, indexes):
+        """Register file and Flickr indexes."""
+
+        self.file_index, self.flickr_index = indexes
+
+        if not self.flickr_index.proxy:
+            self.alert('Couldn\'t connect to Flickr.')
+
     def loading_images_cb(self, queue):
         """Load images into the new view."""
 
@@ -232,12 +244,9 @@ class Preview:
 
             return True
         else:
-            self.glade.get_widget('button_ok').set_sensitive(True)
+            self.set_sensitive(True)
             self.set_status(None)
             self.window.props.title = "%u images - pif" % count
-
-            views = map(self.glade.get_widget, ('view_ignore', 'view_new', 'view_upload'))
-            map(lambda v: v.set_sensitive(True), views)
 
     def loading_thumbs_cb(self, queue):
         """Load thumbnails into the appropriate view."""
@@ -276,6 +285,33 @@ class Preview:
     def loading_done_cb(self):
         self.set_status(None)
 
+    def upload_progress_cb(self, count, total):
+        """Update the progress bar on the Flickr upload."""
+
+        self.set_status(
+            "%u of %u photos uploaded to Flickr" % (int(count), total),
+            float(count) / float(total)
+        )
+
+    def upload_done_cb(self, success, url):
+        """Open the uploaded photos redirection website."""
+
+        if url:
+            gtk.show_uri(
+                gtk.gdk.screen_get_default(),
+                url,
+                gtk.get_current_event_time()
+            )
+
+        if success:
+            self.on_close(None)
+        else:
+            # TODO: A whole lot. Figure out what was uploaded, and remember
+            # that. Then re-init the whole program, resync to Flickr, and
+            # re-scan for photos. After the re-scan, automatically move the
+            # previous selections over into the Upload view.
+            self.alert('Upload failed!', exit_on_close=True)
+
     def set_status(self, status, fraction=None):
         """Update the progress bar."""
 
@@ -292,18 +328,101 @@ class Preview:
             progress.props.fraction = 0.0
             progress.props.text = ''
 
+    def set_sensitive(self, sensitivity):
+        """Update the sensitivity of the window."""
+
+        buttons = [self.glade.get_widget('button_ok'), ]
+        views = map(self.glade.get_widget, ('view_ignore', 'view_new', 'view_upload'))
+
+        map(lambda v: v.set_sensitive(sensitivity), views + buttons)
+
+    def alert(self, message, exit_on_close=False):
+        """Display an alert in the top of window."""
+
+        LOG.warn(message)
+
+        # Build the alert pane.
+
+        text = gtk.Label(message)
+
+        img = gtk.Image()
+        img.set_from_stock(gtk.STOCK_CLOSE, gtk.ICON_SIZE_MENU)
+
+        close = gtk.Button()
+        close.set_image(img)
+        close.set_relief(gtk.RELIEF_NONE)
+
+        hbox = gtk.HBox()
+        hbox.pack_start(text)
+        hbox.pack_start(close, expand=False)
+
+        frame = gtk.Frame()
+        frame.add(hbox)
+        frame.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse('yellow'))
+        frame.set_shadow_type(gtk.SHADOW_OUT)
+
+        ebox = gtk.EventBox()
+        ebox.add(frame)
+
+        vbox = self.glade.get_widget('vbox')
+        vbox.pack_start(ebox, expand=False)
+        vbox.reorder_child(ebox, 0)
+
+        # Connect events for destroying the pane and exiting the application.
+        def _(widget):
+            widget.destroy()
+
+            if exit_on_close:
+                self.on_close(widget)
+
+        close.connect('clicked', lambda b: _(ebox))
+        ebox.connect('button-release-event', lambda w, e: _(w))
+        ebox.connect('enter-notify-event', lambda w, e: frame.set_shadow_type(gtk.SHADOW_IN))
+        ebox.connect('leave-notify-event', lambda w, e: frame.set_shadow_type(gtk.SHADOW_OUT))
+
+        vbox.show_all()
+
     def on_ok(self, button):
-        upload = [fn
-                  for fn, bn, pb in self.glade.get_widget('view_upload').get_model()
-                  if fn]
-        ignore = [fn
-                  for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
-                  if fn]
+        """Process the categorized images."""
 
-        LOG.debug("Upload: %s" % upload)
-        LOG.debug("Ignore: %s" % ignore)
+        self.set_sensitive(False)
 
-    on_close = gtk.main_quit
+        # Mark images as "already uploaded."
+
+        ignores = [fn
+                   for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
+                   if fn]
+
+        if not self.dry_run:
+            for fn in ignores:
+                self.flickr_index.add(self.file_index[fn], None)
+
+        # Upload the images!
+
+        if self.dry_run:
+            self.on_close(None)
+        else:
+            uploads = [fn
+                       for fn, bn, pb in self.glade.get_widget('view_upload').get_model()
+                       if fn]
+
+            t_upload = FlickrUploader(
+                self.flickr_index,
+                progress_callback=idle_proxy(self.upload_progress_cb),
+                done_callback=idle_proxy(self.upload_done_cb)
+            )
+            t_upload.start(uploads)
+
+    def on_close(self, widget):
+        """Quit!"""
+
+        if self.file_index:
+            self.file_index.sync()
+
+        if not self.dry_run and self.flickr_index:
+            self.flickr_index.sync()
+
+        gtk.main_quit()
 
 class FlickrUpdater(threading.Thread):
     """Worker thread for updating from Flickr."""
@@ -318,6 +437,9 @@ class FlickrUpdater(threading.Thread):
         self.setDaemon(True)
 
     def run(self):
+        if self.proxy_callback:
+            self.proxy_callback()
+
         indexes, filenames = common_run(self.opts, self.proxy_callback, self.progress_callback)
         self.file_index, self.flickr_index = indexes
 
@@ -347,7 +469,7 @@ class ImageLoader(threading.Thread):
             self.loading_callback(queue)
 
         fns = []
-        for n, fn in enumerate(self.filenames):
+        for fn in self.filenames:
             fns.append(fn)
             queue.put(fn)
         queue.put(None)
@@ -396,6 +518,57 @@ class ThumbLoader(threading.Thread):
 
         threading.Thread.start(self)
 
+class FlickrUploader(threading.Thread):
+    """Worker thread for uploading to Flickr."""
+
+    def __init__(self, flickr_index, progress_callback=None, done_callback=None):
+        threading.Thread.__init__(self)
+
+        self.flickr_index = flickr_index
+        self.progress_callback = progress_callback
+        self.done_callback = done_callback
+
+        self.setDaemon(True)
+
+    def run(self):
+        def _upload(fns):
+            for n, fn in enumerate(fns):
+                if self.progress_callback:
+                    def _(progress, done):
+                        if done: p = n + 1
+                        else: p = n + (progress / 100)
+                        self.progress_callback(p, len(self.filenames))
+                else:
+                    _ = None
+
+                # TODO: This will probably throw an exception in case of a serious error.
+                # We should track those down, and handle them appropriately.
+                yield self.flickr_index.upload(filename=fn, callback=_)
+
+        ids = []
+        for resp in _upload(self.filenames):
+            if resp is not None:
+                photo_id = resp.find('photoid')
+
+                if photo_id is not None:    # Ugly because the photoid element is a boolean False.
+                    ids.append(photo_id.text)
+                else:
+                    LOG.debug('No photo_id in the enclosed response.')
+                    break
+            else:
+                LOG.debug('No response from the upload proxy.')
+                break
+
+        url = 'http://www.flickr.com/tools/uploader_edit.gne?ids=' + ','.join(ids) if ids else None
+
+        if self.done_callback:
+            self.done_callback(len(self.filenames) == len(ids), url)
+
+    def start(self, filenames):
+        self.filenames = filenames
+
+        threading.Thread.start(self)
+
 def idle_proxy(func):
     """Thunk a function into the gobject event loop."""
 
@@ -407,9 +580,10 @@ def idle_proxy(func):
 
 def run():
     opts = OPTIONS.parse_args()
+    options, args = opts
 
     gtk.gdk.threads_init()
-    preview = Preview()
+    preview = Preview(options.dry_run)
 
     t_thumb = ThumbLoader(
         loading_callback=idle_proxy(preview.loading_thumbs_cb),
@@ -422,11 +596,8 @@ def run():
     t_flickr = FlickrUpdater(
         proxy_callback=preview.flickr_proxy_tcb,
         progress_callback=idle_proxy(preview.flickr_progress_cb),
-        done_callback=lambda indexes, filenames: t_image.start(filenames)
+        done_callback=lambda indexes, filenames: idle_proxy(preview.flickr_indexes_cb(indexes)) and t_image.start(filenames)
     )
 
     t_flickr.start(opts)
     gtk.main()
-
-    t_flickr.file_index.sync()
-    t_flickr.flickr_index.sync()
