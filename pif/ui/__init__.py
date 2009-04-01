@@ -85,10 +85,7 @@ def common_run(opts, proxy_callback, progress_callback):
     if options.reset and os.path.isfile(FLICKR_INDEX):
         os.remove(FLICKR_INDEX)
 
-    if options.no_sync:
-        proxy = None
-    else:
-        proxy = open_proxy(proxy_callback)
+    proxy = open_proxy(proxy_callback)
 
     indexes = open_indexes(proxy)
     file_index, flickr_index = indexes
@@ -103,8 +100,3 @@ def common_run(opts, proxy_callback, progress_callback):
         images = images_not_uploaded((file_index, flickr_index), images)
 
     return indexes, images
-
-def upload_images(images):
-    # TODO: Check for duplicate images in the upload.
-
-    LOG.debug("Upload:\n\t%s" % '\n\t'.join(images))
