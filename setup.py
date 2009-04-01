@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='pif',
-    version='10.3',
+    version='9.4',
 
     packages=['pif',],
     package_data={
@@ -14,15 +14,16 @@ setup(
     install_requires=[
         'flickrapi',
         'httplib2',
-        'simplejson',
         'threadpool',
     ],
 
     entry_points={
         'console_scripts': [
             'pif = pif.ui.console:run',
-            'xpif = pif.ui.x:run',
-        ]
+        ],
+        'gui_scripts': [
+            'pif-gtk = pif.ui.x:run',
+        ],
     },
 
     tests_require=[
