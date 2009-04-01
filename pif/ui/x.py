@@ -12,7 +12,7 @@ import gobject
 import gtk
 import gtk.glade
 
-from pif.ui import OPTIONS, common_run
+from pif.ui import OPTIONS, RE_IMAGES, common_run
 
 LOG = logging.getLogger(__name__)
 
@@ -229,6 +229,41 @@ class Preview:
         # If the store is empty, then add a stub entry.
         if len(store) == 0:
             self._view_init(view)
+
+    def request_images_cb(self, callback):
+        """Request a folder of images to operate upon."""
+
+        fcd = gtk.FileChooserDialog(
+            title='Select folder(s) to scan for photos...',
+            parent=self.window,
+            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+            buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                     gtk.STOCK_OPEN, gtk.RESPONSE_OK),
+        )
+        fcd.props.local_only = True
+        fcd.props.select_multiple = True
+
+        filter = gtk.FileFilter()
+        filter.set_name('Images')
+        filter.add_custom(
+            gtk.FILE_FILTER_FILENAME,
+            lambda info: RE_IMAGES.match(info[0])
+        )
+        fcd.add_filter(filter)
+
+        gtk.gdk.threads_enter()
+        resp = fcd.run()
+        gtk.gdk.threads_leave()
+
+        # We only cancel if specifically requested.
+        if resp == gtk.RESPONSE_OK:
+            fns = fcd.get_filenames()
+
+            fcd.destroy()
+
+            callback(fns)
+        else:
+            self.on_close(None)
 
     def flickr_proxy_tcb(self):
         """Inform about waiting for Flickr."""
@@ -664,5 +699,9 @@ def run():
         done_callback=lambda indexes, filenames: idle_proxy(preview.flickr_indexes_cb(indexes)) and t_image.start(filenames)
     )
 
-    t_flickr.start(opts)
+    if args:
+        t_flickr.start(opts)
+    else:
+        gobject.idle_add(preview.request_images_cb, lambda fns: t_flickr.start((options, fns)))
+
     gtk.main()
