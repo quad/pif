@@ -164,13 +164,18 @@ class Preview:
         # TODO: Bug GTK about this problem.
         store.append((None, None, None))
 
+    def _view_is_active(self, view):
+        """Return if a view is active."""
+
+        return view.props.can_focus
+
     def _view_add(self, view, filename):
         """Add an image to a view."""
 
         store = view.get_model()
-        
+
         # If the view is stubbed, then reactivate it.
-        if view.get_text_column() == -1:
+        if not self._view_is_active(view):
             store.clear()
             view.props.can_focus = True
             view.props.pixbuf_column = 2
@@ -422,6 +427,25 @@ class Preview:
 
     def on_close(self, widget):
         """Quit!"""
+
+        views = map(self.glade.get_widget, ('view_ignore', 'view_upload'))
+        changed = map(lambda v: v.props.sensitive and self._view_is_active(v), views)
+
+        if True in changed:
+            md = gtk.MessageDialog(
+                parent=self.window,
+                flags=gtk.DIALOG_MODAL,
+                type=gtk.MESSAGE_WARNING,
+                buttons=gtk.BUTTONS_OK_CANCEL,
+                message_format='There are unsaved changes.\n\nAre you sure you want to exit?'
+            )
+
+            resp = md.run()
+
+            # We only cancel if specifically requested.
+            if resp != gtk.RESPONSE_OK:
+                md.destroy()
+                return
 
         if self.file_index:
             self.file_index.sync()
