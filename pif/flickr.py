@@ -56,6 +56,10 @@ class FlickrIndex(object, shelve.DbfilenameShelf):
 
             self.last_update = last_update
 
+    def upload(self, *args, **kwargs):
+        if self.proxy:
+            return self.proxy.upload(*args, **kwargs)
+
     def _refresh_updated(self, progress_callback):
         """Synchronize to the recently updated photos."""
 
