@@ -64,6 +64,8 @@ class Preview:
         self.refs = {}
         self.thumbs = {}
 
+        self._filenames = []
+
         # Hookup the widgets through Glade.
         self.glade = gtk.glade.xml_new_from_buffer(self.XML, len(self.XML))
         self.glade.signal_autoconnect(self)
@@ -231,19 +233,24 @@ class Preview:
         except Queue.Empty:
             return True
 
-        queue.task_done()
+        if fn:
+            self._filenames.append(fn)
+            queue.task_done()
 
-        view = self.glade.get_widget('view_new')
-        count = len(view.get_model())
+        count = len(self._filenames)
 
         if fn:
-            self._view_add(view, fn)
-
             self.set_status("%u images scanned" % count)
             self.window.props.title = "%u images (scanning) - pif" % count
 
             return True
         else:
+            view = self.glade.get_widget('view_new')
+            for fn in self._filenames:
+                self._view_add(view, fn)
+
+            queue.task_done()
+
             self.set_sensitive(True)
             self.set_status(None)
             self.window.props.title = "%u images - pif" % count
