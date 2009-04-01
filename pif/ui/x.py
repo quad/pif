@@ -55,7 +55,6 @@ def exif_orient(pixbuf):
 
 class Preview:
     XML = pkg_resources.resource_string(__name__, 'preview.glade')
-    PIXBUF_UNKNOWN = gtk.icon_theme_get_default().load_icon('gtk-missing-image', gtk.ICON_SIZE_DIALOG, 0).scale_simple(128, 128, gtk.gdk.INTERP_BILINEAR)
 
     def __init__(self, dry_run=False):
         self.dry_run = dry_run
@@ -66,6 +65,8 @@ class Preview:
         self.thumbs = {}
 
         self._filenames = []
+
+        self.PIXBUF_UNKNOWN = gtk.icon_theme_get_default().load_icon('gtk-missing-image', gtk.ICON_SIZE_DIALOG, 0).scale_simple(128, 128, gtk.gdk.INTERP_BILINEAR)
 
         # Hookup the widgets through Glade.
         self.glade = gtk.glade.xml_new_from_buffer(self.XML, len(self.XML))
@@ -679,8 +680,15 @@ def idle_proxy(func):
     return lambda *args, **kwargs: gobject.idle_add(_, (func, args, kwargs))
 
 def run():
+    # Ensure we're graphical.
+    if not gtk.gdk.get_display():
+        OPTIONS.error('Cannot open display.')
+
+    # Parse the command-line.
     opts = OPTIONS.parse_args()
     options, args = opts
+
+    # Prepare the GUI and worker threads.
 
     gtk.gdk.threads_init()
     preview = Preview(options.dry_run)
@@ -699,6 +707,7 @@ def run():
         done_callback=lambda indexes, filenames: idle_proxy(preview.flickr_indexes_cb(indexes)) and t_image.start(filenames)
     )
 
+    # Let the user select files if they weren't specified.
     if args:
         t_flickr.start(opts)
     else:
