@@ -86,7 +86,7 @@ class Preview:
             view.set_model(store)
 
             # Prepare for Drag and Drop
-            dnd_target = ('text/uri-list', gtk.TARGET_SAME_APP | gtk.TARGET_OTHER_WIDGET, 0)
+            dnd_target = ('text/uri-list', gtk.TARGET_SAME_APP, 0)
             view.enable_model_drag_source(gtk.gdk.BUTTON1_MASK, (dnd_target,), gtk.gdk.ACTION_MOVE)
             view.enable_model_drag_dest((dnd_target,), gtk.gdk.ACTION_DEFAULT)
 
@@ -156,10 +156,11 @@ class Preview:
     def on_view_drag_data_received(self, view, context, x, y, selection, info, timestamp):
         """Add items from another view via drag and drop."""
 
+        item = view.get_dest_item_at_pos(x, y)
         store = view.get_model()
 
-        for uri in selection.get_uris():
-            self._view_add(view, uri2path(uri))
+        for uri in reversed(selection.get_uris()):
+            self._view_add(view, uri2path(uri), order=item)
 
         if context.action & gtk.gdk.ACTION_MOVE:
             context.finish(True, True, timestamp)
@@ -199,7 +200,7 @@ class Preview:
 
         return view.props.can_focus
 
-    def _view_add(self, view, filename):
+    def _view_add(self, view, filename, order=None):
         """Add an image to a view."""
 
         store = view.get_model()
@@ -217,6 +218,24 @@ class Preview:
             gobject.filename_display_basename(filename),
             self.thumbs.get(filename, self.PIXBUF_UNKNOWN)
         ))
+
+        # Reorder the drop, if necessary.
+        if order:
+            path, drop = order
+
+            ops = {
+                gtk.ICON_VIEW_NO_DROP: lambda i, p: None,
+
+                gtk.ICON_VIEW_DROP_ABOVE: store.move_before,
+                gtk.ICON_VIEW_DROP_INTO: store.move_before,
+                gtk.ICON_VIEW_DROP_LEFT: store.move_before,
+
+                gtk.ICON_VIEW_DROP_BELOW: store.move_after,
+                gtk.ICON_VIEW_DROP_RIGHT: store.move_after,
+            }
+
+            ops[drop](iter, store.get_iter(path))
+
         self.refs[filename] = gtk.TreeRowReference(store, store.get_path(iter))
 
     def _view_remove(self, view, path):

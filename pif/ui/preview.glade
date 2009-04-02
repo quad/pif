@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Thu Apr  2 16:12:45 2009 -->
+<!--Generated with glade3 3.4.5 on Thu Apr  2 16:23:17 2009 -->
 <glade-interface>
   <widget class="GtkWindow" id="window">
     <property name="width_request">620</property>
@@ -36,6 +36,7 @@
                             <property name="sensitive">False</property>
                             <property name="can_focus">True</property>
                             <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
+                            <property name="reorderable">True</property>
                             <signal name="drag_data_get" handler="on_view_drag_data_get"/>
                             <signal name="item_activated" handler="on_item_activated"/>
                             <signal name="drag_data_delete" handler="on_view_drag_data_delete"/>
@@ -87,6 +88,7 @@
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
                                 <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
+                                <property name="reorderable">True</property>
                                 <signal name="drag_data_get" handler="on_view_drag_data_get"/>
                                 <signal name="item_activated" handler="on_item_activated"/>
                                 <signal name="drag_data_delete" handler="on_view_drag_data_delete"/>
@@ -129,6 +131,7 @@
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
                                 <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
+                                <property name="reorderable">True</property>
                                 <signal name="drag_data_get" handler="on_view_drag_data_get"/>
                                 <signal name="item_activated" handler="on_item_activated"/>
                                 <signal name="drag_data_delete" handler="on_view_drag_data_delete"/>
