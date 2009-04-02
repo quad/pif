@@ -491,7 +491,7 @@ class Preview:
             )
             t_upload.start(uploads)
 
-    def on_close(self, widget):
+    def on_close(self, widget, user_data=None):
         """Quit!"""
 
         # Alert if there are unsaved changes.
@@ -513,7 +513,7 @@ class Preview:
             # We only cancel if specifically requested.
             if resp != gtk.RESPONSE_OK:
                 md.destroy()
-                return
+                return True
 
         # Save changes!
 
