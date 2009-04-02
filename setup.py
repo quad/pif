@@ -6,9 +6,13 @@ setup(
     name='pif',
     version='9.4',
 
-    packages=['pif',],
+    packages=[
+        'pif',
+        'pif.ui'
+    ],
     package_data={
         'pif': ['flickr-api.key'],
+        'pif.ui': ['preview.glade'],
     },
 
     install_requires=[
