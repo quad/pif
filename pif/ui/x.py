@@ -655,8 +655,6 @@ class FlickrUploader(threading.Thread):
                 else:
                     _ = None
 
-                # TODO: This will probably throw an exception in case of a serious error.
-                # We should track those down, and handle them appropriately.
                 yield self.flickr_index.upload(filename=fn, callback=_)
 
         ids = []

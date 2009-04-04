@@ -1,0 +1,25 @@
+--- !ditz.rubyforge.org,2008-03-06/issue 
+title: FlickrUploader worker should handle upload exceptions
+desc: |-
+  The FlickrUploader worker thread doesn't handle exceptions from flickrapi.upload.
+  
+  This means UI updates will stop in the case of a connection failure.
+  
+  We should be handling FlickrErrors and IOErrors, at the very minimum. But,
+  additional research needs to be done to determine the wide range of possible
+  exceptions and their proper handling.
+type: :bugfix
+component: pif
+release: 
+reporter: Scott Robinson <scott@quadhome.com>
+status: :unstarted
+disposition: 
+creation_time: 2009-04-04 06:04:05.717527 Z
+references: []
+
+id: d77a5fdb67428a738ff9d2ed300f1c0ffc191509
+log_events: 
+- - 2009-04-04 06:04:06.399269 Z
+  - Scott Robinson <scott@quadhome.com>
+  - created
+  - ""
