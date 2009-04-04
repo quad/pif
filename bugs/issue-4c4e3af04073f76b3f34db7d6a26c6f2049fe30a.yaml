@@ -1,0 +1,33 @@
+--- !ditz.rubyforge.org,2008-03-06/issue 
+title: Persist the HTTP connections during flickr updates
+desc: |-
+  We open a separate HTTP connection during the shorthash collection process in
+  pif.flickr.FlickrIndex.
+  
+  Ideally, we would pool the requests by hostname. Then, dedicate a single worker
+  thread per pool.
+  
+  Unfortunately, this change would makke the availability of the shorthash data
+  be out of order. That would prevent progressive updating of the local database
+  and makes crash-recovery tricky.
+  
+  BUT, as we're not syncing the local database until the entire collection
+  process is complete ANYWAY... this seems like a totally worthwhile trade-off.
+  
+  Investigation of the in-memory model and writeback strategy of shelve (bsddb /
+  gdbm) will need to be done in order to make this guarantee.
+type: :feature
+component: pif
+release: 
+reporter: Scott Robinson <scott@quadhome.com>
+status: :unstarted
+disposition: 
+creation_time: 2009-04-04 05:45:03.527121 Z
+references: []
+
+id: 4c4e3af04073f76b3f34db7d6a26c6f2049fe30a
+log_events: 
+- - 2009-04-04 05:45:05.145673 Z
+  - Scott Robinson <scott@quadhome.com>
+  - created
+  - ""

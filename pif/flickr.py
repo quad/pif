@@ -105,7 +105,6 @@ class FlickrIndex(object, shelve.DbfilenameShelf):
 
     def _refresh_sizes(self, new_photos, progress_callback):
         def get_photo_size(photo):
-            # TODO: Persist the HTTP connection.
             h = httplib2.Http()
 
             resp, content = h.request(uri=self._url(photo),
