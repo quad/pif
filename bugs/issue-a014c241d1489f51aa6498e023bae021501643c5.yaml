@@ -1,0 +1,38 @@
+--- !ditz.rubyforge.org,2008-03-06/issue 
+title: UI should handle upload failure better
+desc: |-
+  When an upload fails, the entire upload process is canceled.
+  
+  Currently, we then pop a non-modal alert with the text "Upload failed!" If they
+  click that alert, the application closes.
+  
+  We should remember which photos were marked to be uploaded to Flickr. Then,
+  restart and resync with Flickr. Any marked photos that were successfully
+  uploaded should disappear from the view. But, the previously marked photos
+  should remain marked.
+  
+  Sorting is a long and arduous task. The loss of a net connection or Flickr
+  going down shouldn't revert work.
+type: :feature
+component: pif
+release: 
+reporter: Scott Robinson <scott@quadhome.com>
+status: :unstarted
+disposition: 
+creation_time: 2009-04-04 05:59:44.612559 Z
+references: []
+
+id: a014c241d1489f51aa6498e023bae021501643c5
+log_events: 
+- - 2009-04-04 05:59:48.773505 Z
+  - Scott Robinson <scott@quadhome.com>
+  - created
+  - ""
+- - 2009-04-04 06:00:16.548258 Z
+  - Scott Robinson <scott@quadhome.com>
+  - edited title, description
+  - ""
+- - 2009-04-04 06:00:21.302517 Z
+  - Scott Robinson <scott@quadhome.com>
+  - edited title
+  - ""

@@ -400,10 +400,6 @@ class Preview:
         if success:
             self.on_close(None)
         else:
-            # TODO: A whole lot. Figure out what was uploaded, and remember
-            # that. Then re-init the whole program, resync to Flickr, and
-            # re-scan for photos. After the re-scan, automatically move the
-            # previous selections over into the Upload view.
             self.alert('Upload failed!', exit_on_close=True)
 
     def set_status(self, status, fraction=None):
