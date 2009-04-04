@@ -1,0 +1,25 @@
+--- !ditz.rubyforge.org,2008-03-06/issue 
+title: Report empty IconView DnD issues upstream
+desc: |-
+  In GTK 2.14, empty IconViews are insensitive to being drag and drop destinations.
+  
+  The bug is pretty accurately documented here: http://www.gtkforums.com/about2772.html
+  
+  Our workaround was to stub an "empty" IconView with an invisible item.
+  
+  We should bug upstream.
+type: :task
+component: pif
+release: 
+reporter: Scott Robinson <scott@quadhome.com>
+status: :unstarted
+disposition: 
+creation_time: 2009-04-04 05:50:32.274184 Z
+references: []
+
+id: 5c8f571b9dd5b22c5cc7d88a488b50a8268fec65
+log_events: 
+- - 2009-04-04 05:50:33.246378 Z
+  - Scott Robinson <scott@quadhome.com>
+  - created
+  - ""

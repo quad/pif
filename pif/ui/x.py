@@ -192,7 +192,6 @@ class Preview:
         store.clear()
 
         # Insert a stub entry in the store, so DnD will still respond.
-        # TODO: Bug GTK about this problem.
         store.append((None, None, None))
 
     def _view_is_active(self, view):
