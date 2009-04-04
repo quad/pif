@@ -120,7 +120,6 @@ class Preview:
         # associated URIs to be launched.
         #
         # This code is convoluted because the gtk.AppInfo type is not hashable.
-        # TODO: Report this as a bug in PyGTK.
 
         app_on_uris = []
 

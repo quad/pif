@@ -1,0 +1,22 @@
+--- !ditz.rubyforge.org,2008-03-06/issue 
+title: Report unhashable gio.AppInfo bug upstream
+desc: |-
+  gio.AppInfo isn't hashable. Therefore, code like in
+  pif.ui.x.Preview:on_item_activated is convoluted.
+  
+  We should report this upstream.
+type: :task
+component: pif
+release: 
+reporter: Scott Robinson <scott@quadhome.com>
+status: :unstarted
+disposition: 
+creation_time: 2009-04-04 05:53:34.700739 Z
+references: []
+
+id: 9b2129102e545eb0e675762a92e8a59babe14508
+log_events: 
+- - 2009-04-04 05:53:35.745228 Z
+  - Scott Robinson <scott@quadhome.com>
+  - created
+  - ""
