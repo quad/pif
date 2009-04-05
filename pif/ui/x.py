@@ -13,6 +13,7 @@ import gtk
 import gtk.glade
 
 from pif.ui import OPTIONS, RE_IMAGES, common_run
+from pif.workers import Loader, FlickrUpdater
 
 LOG = logging.getLogger(__name__)
 
@@ -342,6 +343,11 @@ class Preview:
             self.set_status(None)
             self.window.props.title = "%u images - pif" % count
 
+    def load_image_tcb(self, queue, filename):
+        """Load an image."""
+
+        queue.put(filename)
+
     def loading_thumbs_cb(self, queue):
         """Load thumbnails into the appropriate view."""
 
@@ -376,7 +382,15 @@ class Preview:
 
             return True
 
-    def loading_done_cb(self):
+    def load_thumb_tcb(self, queue, filename):
+        """Load a thumbnail."""
+
+        queue.put((
+            filename,
+            exif_orient(gtk.gdk.pixbuf_new_from_file_at_size(filename, 128, 128))
+        ))
+
+    def loading_done_cb(self, filenames):
         self.set_status(None)
 
     def upload_progress_cb(self, count, total):
@@ -538,149 +552,6 @@ class Preview:
 
         gtk.main_quit()
 
-class FlickrUpdater(threading.Thread):
-    """Worker thread for updating from Flickr."""
-
-    def __init__(self, proxy_callback=None, progress_callback=None, done_callback=None):
-        threading.Thread.__init__(self)
-
-        self.proxy_callback = proxy_callback
-        self.progress_callback = progress_callback
-        self.done_callback = done_callback
-
-        self.setDaemon(True)
-
-    def run(self):
-        if self.proxy_callback:
-            self.proxy_callback()
-
-        indexes, filenames = common_run(self.opts, self.proxy_callback, self.progress_callback)
-        self.file_index, self.flickr_index = indexes
-
-        if self.done_callback:
-            self.done_callback(indexes, filenames)
-
-    def start(self, opts):
-        self.opts = opts
-
-        threading.Thread.start(self)
-
-class ImageLoader(threading.Thread):
-    """Worker thread for scanning the filesystem for images."""
-
-    def __init__(self, loading_callback=None, done_callback=None):
-        threading.Thread.__init__(self)
-
-        self.loading_callback = loading_callback
-        self.done_callback = done_callback
-
-        self.setDaemon(True)
-
-    def run(self):
-        queue = Queue.Queue()
-
-        if self.loading_callback:
-            self.loading_callback(queue)
-
-        fns = []
-        for fn in self.filenames:
-            fns.append(fn)
-            queue.put(fn)
-        queue.put(None)
-
-        queue.join()
-
-        if self.done_callback:
-            self.done_callback(fns)
-
-    def start(self, filenames):
-        self.filenames = filenames
-
-        threading.Thread.start(self)
-
-class ThumbLoader(threading.Thread):
-    """Worker thread for loading thumbnails."""
-
-    def __init__(self, loading_callback=None, done_callback=None):
-        threading.Thread.__init__(self)
-
-        self.loading_callback = loading_callback
-        self.done_callback = done_callback
-
-        self.setDaemon(True)
-
-    def run(self):
-        queue = Queue.Queue()
-
-        if self.loading_callback:
-            self.loading_callback(queue)
-
-        for fn in self.filenames:
-            queue.put((
-                fn,
-                exif_orient(gtk.gdk.pixbuf_new_from_file_at_size(fn, 128, 128))
-            ))
-        queue.put(None)
-
-        queue.join()
-
-        if self.done_callback:
-            self.done_callback()
-
-    def start(self, filenames):
-        self.filenames = filenames
-
-        threading.Thread.start(self)
-
-class FlickrUploader(threading.Thread):
-    """Worker thread for uploading to Flickr."""
-
-    def __init__(self, flickr_index, progress_callback=None, done_callback=None):
-        threading.Thread.__init__(self)
-
-        self.flickr_index = flickr_index
-        self.progress_callback = progress_callback
-        self.done_callback = done_callback
-
-        self.setDaemon(True)
-
-    def run(self):
-        def _upload(fns):
-            for n, fn in enumerate(fns):
-                if self.progress_callback:
-                    def _(progress, done):
-                        if done: p = n + 1
-                        else: p = n + (progress / 100)
-                        self.progress_callback(p, len(self.filenames))
-                else:
-                    _ = None
-
-                yield self.flickr_index.upload(filename=fn, callback=_)
-
-        ids = []
-        for resp in _upload(self.filenames):
-            if resp is not None:
-                photo_id = resp.find('photoid')
-
-                if photo_id is not None:    # Ugly because the photoid element is a boolean False.
-                    ids.append(photo_id.text)
-                else:
-                    LOG.debug('No photo_id in the enclosed response.')
-                    break
-            else:
-                LOG.debug('No response from the upload proxy.')
-                break
-
-        url = 'http://www.flickr.com/tools/uploader_edit.gne?ids=' + ','.join(ids) if ids else None
-
-        if self.done_callback:
-            self.done_callback(len(self.filenames) == len(ids), url)
-
-    def start(self, filenames):
-        self.filenames = filenames
-
-        threading.Thread.start(self)
-
 def idle_proxy(func):
     """Thunk a function into the gobject event loop."""
 
@@ -704,12 +575,14 @@ def run():
     gtk.gdk.threads_init()
     preview = Preview(options.dry_run)
 
-    t_thumb = ThumbLoader(
+    t_thumb = Loader(
         loading_callback=idle_proxy(preview.loading_thumbs_cb),
+        work_callback=preview.load_thumb_tcb,
         done_callback=idle_proxy(preview.loading_done_cb)
     )
-    t_image = ImageLoader(
+    t_image = Loader(
         loading_callback=idle_proxy(preview.loading_images_cb),
+        work_callback=preview.load_image_tcb,
         done_callback=t_thumb.start
     )
     t_flickr = FlickrUpdater(

@@ -2,6 +2,7 @@ __all__ = [
     'flickr',
     'local',
     'ui',
+    'workers',
 ]
 
 import hashlib
