@@ -15,6 +15,9 @@ import pif.local
 
 LOG = logging.getLogger(__name__)
 
+if 'DEBUG' in os.environ:
+    logging.root.setLevel(logging.DEBUG)
+
 EXTENSIONS = ('gif',
               'jpeg', 'jpg',
               'png',)
@@ -75,12 +78,11 @@ def images_not_uploaded(indexes, filenames):
 def common_run(opts, proxy_callback, progress_callback):
     options, args = opts
 
-    if 'DEBUG' in os.environ:
-        logging.root.setLevel(logging.DEBUG)
-    elif options.verbose:
-        logging.root.setLevel(logging.INFO)
-    else:
-        logging.root.setLevel(logging.WARN)
+    if 'DEBUG' not in os.environ:
+        if options.verbose:
+            logging.root.setLevel(logging.INFO)
+        else:
+            logging.root.setLevel(logging.WARN)
 
     if options.reset and os.path.isfile(FLICKR_INDEX):
         os.remove(FLICKR_INDEX)
