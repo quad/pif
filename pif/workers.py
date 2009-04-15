@@ -71,10 +71,10 @@ class Loader(threading.Thread):
 class FlickrUploader(threading.Thread):
     """Worker thread for uploading to Flickr."""
 
-    def __init__(self, flickr_index, progress_callback=None, done_callback=None):
+    def __init__(self, proxy, progress_callback=None, done_callback=None):
         threading.Thread.__init__(self)
 
-        self.flickr_index = flickr_index
+        self.proxy = proxy
         self.progress_callback = progress_callback
         self.done_callback = done_callback
 
@@ -91,7 +91,7 @@ class FlickrUploader(threading.Thread):
                 else:
                     _ = None
 
-                yield self.flickr_index.upload(filename=fn, callback=_)
+                yield self.proxy.upload(filename=fn, callback=_)
 
         ids = []
         for resp in _upload(self.filenames):

@@ -13,7 +13,7 @@ import gtk
 import gtk.glade
 
 from pif.ui import OPTIONS, RE_IMAGES, common_run
-from pif.workers import Loader, FlickrUpdater
+from pif.workers import Loader, FlickrUpdater, FlickrUploader
 
 LOG = logging.getLogger(__name__)
 
@@ -512,7 +512,7 @@ class Preview:
                        if fn]
 
             t_upload = FlickrUploader(
-                self.flickr_index,
+                self.flickr_index.proxy,
                 progress_callback=idle_proxy(self.upload_progress_cb),
                 done_callback=idle_proxy(self.upload_done_cb)
             )
