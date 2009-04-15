@@ -24,7 +24,7 @@ def run():
         LOG.info('Marked as uploaded:')
         for fn in images:
             if not options.dry_run:
-                flickr_index.add(file_index[fn], None)
+                flickr_index.ignore(file_index[fn])
 
             LOG.info("\t%s" % fn)
     else:

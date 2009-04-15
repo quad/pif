@@ -1,9 +1,10 @@
+import collections
 import logging
 import shelve
 import threadpool
+import urllib2
 
 import flickrapi
-import httplib2
 import pkg_resources
 
 from flickrapi.exceptions import FlickrError
@@ -15,6 +16,8 @@ LOG = logging.getLogger(__name__)
 API_KEY, API_SECRET = pkg_resources.resource_string(__name__, 'flickr-api.key').split()
 
 def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
+    """Get a web service proxy to Flickr."""
+
     # Setup the API proxy.
     proxy = flickrapi.FlickrAPI(key, secret, format='etree')
 
@@ -34,127 +37,123 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
 
     return proxy
 
-class FlickrIndex(object, shelve.DbfilenameShelf):
+def recent_photos(proxy, min_date=1, progress_callback=None):
+    """An iterator of the recently updated photos."""
+
+    page, pages = 1, 1
+
+    while page <= pages:
+        resp = proxy.photos_recentlyUpdated(
+            page=page,
+            min_date=min_date,
+            extras='o_dims, original_format, last_update',
+        )
+
+        photos = resp.find('photos')
+
+        if photos:
+            for photo in photos.findall('photo'):
+                yield photo.attrib
+        else:
+            break
+
+        pages = int(photos.get('pages'))
+
+        if progress_callback:
+            progress_callback('update', (page, pages))
+
+        page = int(photos.get('page')) + 1
+
+def get_photo_shorthash(photo):
+    """Get a shorthash for a Flickr photo."""
+
+    req = urllib2.Request(
+        url="http://farm%s.static.flickr.com/%s/%s_%s_o.%s" % (
+            photo['farm'],
+            photo['server'],
+            photo['id'],
+            photo['originalsecret'],
+            photo['originalformat']),
+        headers={'Range': "bytes=-%u" % pif.TAILHASH_SIZE})
+
+    f = urllib2.urlopen(req)
+    assert f.code == 206
+
+    return pif.make_shorthash(
+        content,
+        photo['originalformat'],
+        int(f.headers['content-range'].split('/')[-1]),
+        int(photo['o_width']),
+        int(photo['o_height']),
+    )
+
+def get_photos_shorthashes(photos, progress_callback=None):
+    """Get shorthashes for Flickr photos."""
+
+    import sys
+
     NUM_WORKERS = 4
+
+    failures = []
+    shorthashes = collections.defaultdict(list)
+    processed_photos = 0
+
+    def _cb(request, result):
+        sh, (p, ) = result, request.args
+
+        shorthashes[p['id']].append(sh)
+
+        if progress_callback:
+            progress_callback('index', (processed_photos, len(photos)))
+            processed_photos += 1
+
+    def _ex(request, exc_info):
+        (p, ) = request.args
+        failures.append(p)
+
+        LOG.exception("Failed getting shorthash: %s" % (exc_info, ))
+
+    pool = threadpool.ThreadPool(NUM_WORKERS)
+
+    for req in threadpool.makeRequests(get_photo_shorthash, photos, _cb, _ex):
+        pool.putRequest(req)
+
+    pool.wait()
+    pool.dismissWorkers(len(pool.workers))
+
+    return shorthashes, failures
+
+class FlickrIndex(object, shelve.DbfilenameShelf):
+    STUB = (None, 0)
 
     def __init__(self, proxy, filename):
         shelve.DbfilenameShelf.__init__(self, filename)
 
         self.proxy = proxy
 
-    def add(self, shorthash, id):
+    def add(self, shorthash, photo):
+        entry = photo['id'], int(photo['lastupdate'])
+
         if shorthash in self:
-            if id not in self[shorthash]:
-                self[shorthash] += (id,)
-        else:
-            self[shorthash] = (id,)
+            old_sh = self[shorthash]
+            if old_sh != self.STUB and old_sh != entry:
+                LOG.warning("Shorthash collision: %s on %s" % (entry, old_sh))
+
+        self[shorthash] = entry
+
+    def ignore(self, shorthash):
+        if shorthash not in self:
+            self[shorthash] = self.STUB
 
     def refresh(self, progress_callback=None):
         if self.proxy:
-            new_photos, last_update = self._refresh_updated(progress_callback)
-            self._refresh_sizes(new_photos, progress_callback)
+            photos = list(recent_photos(self.proxy, self.last_update, progress_callback))
+            shorthashes, failures = get_photos_shorthashes(photos, progress_callback)
 
-            self.last_update = last_update
+            assert not failures
 
-    def upload(self, *args, **kwargs):
-        if self.proxy:
-            return self.proxy.upload(*args, **kwargs)
+            for p in photos:
+                for sh in shorthashes[p['id']]:
+                    self.add(sh, p)
 
-    def _refresh_updated(self, progress_callback):
-        """Synchronize to the recently updated photos."""
-
-        def recent_pages(*args, **kwargs):
-            """An iterator of the recent updated photo pages."""
-
-            page, pages = 1, 1
-            while page <= pages:
-                if progress_callback:
-                    progress_callback('update', (page, pages))
-
-                photos = self.proxy.photos_recentlyUpdated(page=page, *args, **kwargs).find('photos')
-
-                if photos: yield photos
-                else: break
-
-                page = int(photos.get('page')) + 1
-                pages = int(photos.get('pages'))
-
-        # Pull down the index of updated photos.
-        photo_pages = recent_pages(extras='o_dims, original_format, last_update',
-                                   min_date=self.last_update + 1)
-
-        # Create records for the photos.
-        new_photos = []
-        last_update = self.last_update
-
-        for photo_page_num, photo_page in enumerate(photo_pages):
-            for photo_xml in photo_page.findall('photo'):
-                new_photos.append(photo_xml.attrib)
-
-                last_update = max(last_update, int(photo_xml.attrib['lastupdate']))
-
-        return new_photos, last_update
-
-    def _url(self, photo):
-        return "http://farm%s.static.flickr.com/%s/%s_%s_o.%s" % \
-                (photo['farm'],
-                 photo['server'],
-                 photo['id'],
-                 photo['originalsecret'],
-                 photo['originalformat'])
-
-    def _refresh_sizes(self, new_photos, progress_callback):
-        def get_photo_size(photo):
-            h = httplib2.Http()
-
-            resp, content = h.request(uri=self._url(photo),
-                                      headers={'Range': "bytes=-%u" % pif.TAILHASH_SIZE})
-            assert resp.status == 206
-
-            shorthash = pif.make_shorthash(
-                content,
-                photo['originalformat'],
-                int(resp['content-range'].split('/')[-1]),
-                int(photo['o_width']),
-                int(photo['o_height']),
-            )
-            
-            return shorthash, int(photo['id'])
-
-        if progress_callback:
-            self.__processed_photos = 0
-
-        def add_photo(request, result):
-            if progress_callback:
-                progress_callback('index', (self.__processed_photos, len(new_photos)))
-                self.__processed_photos += 1
-
-            self.add(*result)
-
-        requests = threadpool.makeRequests(
-            get_photo_size,
-            new_photos,
-            add_photo
-        )
-
-        if requests:
-            pool = threadpool.ThreadPool(0)
-
-            for r in requests:
-                pool.putRequest(r)
-
-            pool.createWorkers(self.NUM_WORKERS, poll_timeout=0)
-            pool.wait()
-
-            pool.dismissWorkers(len(pool.workers))
-
-    def _get_last_update(self):
-        if self.has_key('last_update'):
-            return self['last_update']
-        else:
-            return 1    # Use 1 as Flickr ignores 0.
-
-    def _set_last_update(self, value):
-        self['last_update'] = value
-
-    last_update = property(_get_last_update, _set_last_update)
+    last_update = property(lambda self: max([1, ] + [lu for id, lu in self.values()]))

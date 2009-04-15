@@ -1,7 +1,7 @@
 import collections
 import logging
 import Queue
-import threading
+import sys
 
 import pkg_resources
 
@@ -12,7 +12,7 @@ import gobject
 import gtk
 import gtk.glade
 
-from pif.ui import OPTIONS, RE_IMAGES, common_run
+from pif.ui import OPTIONS, RE_IMAGES
 from pif.workers import Loader, FlickrUpdater, FlickrUploader
 
 LOG = logging.getLogger(__name__)
@@ -54,24 +54,128 @@ def exif_orient(pixbuf):
     else:
         return pixbuf
 
-class Preview:
-    XML = pkg_resources.resource_string(__name__, 'preview.glade')
+def idle_proxy(func):
+    """Thunk a function into the gobject event loop."""
 
-    def __init__(self, dry_run=False):
-        self.dry_run = dry_run
+    def _(proxy):
+        func, args, kwargs = proxy
+        return func(*args, **kwargs)
 
+    return lambda *args, **kwargs: gobject.idle_add(_, (func, args, kwargs))
+
+class StatusUI(object):
+    def set_status(self, status, fraction=None):
+        """Update the progress bar."""
+
+        progress = self.glade.get_widget('progressbar')
+
+        if status:
+            progress.props.text = status
+
+            if fraction:
+                progress.props.fraction = fraction
+            else:
+                progress.pulse()
+        else:
+            progress.props.fraction = 0.0
+            progress.props.text = ''
+
+    def set_sensitive(self, sensitivity):
+        """Update the sensitivity of the window."""
+
+        buttons = [self.glade.get_widget('button_ok'), ]
+        views = map(self.glade.get_widget, ('view_ignore', 'view_new', 'view_upload'))
+
+        map(lambda v: v.set_sensitive(sensitivity), views + buttons)
+
+    def alert(self, message, exit_on_close=False):
+        """Display an alert in the top of window."""
+
+        LOG.warn(message)
+
+        # Build the alert pane.
+
+        text = gtk.Label(message)
+
+        img = gtk.Image()
+        img.set_from_stock(gtk.STOCK_CLOSE, gtk.ICON_SIZE_MENU)
+
+        close = gtk.Button()
+        close.set_image(img)
+        close.set_relief(gtk.RELIEF_NONE)
+
+        hbox = gtk.HBox()
+        hbox.pack_start(text)
+        hbox.pack_start(close, expand=False)
+
+        frame = gtk.Frame()
+        frame.add(hbox)
+        frame.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse('yellow'))
+        frame.set_shadow_type(gtk.SHADOW_OUT)
+
+        ebox = gtk.EventBox()
+        ebox.add(frame)
+
+        vbox = self.glade.get_widget('vbox')
+        vbox.pack_start(ebox, expand=False)
+        vbox.reorder_child(ebox, 0)
+
+        # Connect events for destroying the pane and exiting the application.
+
+        def _(widget):
+            widget.destroy()
+
+            if exit_on_close:
+                self.on_close(widget)
+
+        close.connect('clicked', lambda b: _(ebox))
+        ebox.connect('button-release-event', lambda w, e: _(w))
+        ebox.connect('enter-notify-event', lambda w, e: frame.set_shadow_type(gtk.SHADOW_IN))
+        ebox.connect('leave-notify-event', lambda w, e: frame.set_shadow_type(gtk.SHADOW_OUT))
+
+        vbox.show_all()
+
+class LoginCallbacks(StatusUI):
+    def __init__(self):
         self.file_index = None
         self.flickr_index = None
-        self.refs = {}
-        self.thumbs = {}
 
-        self._filenames = []
+    def flickr_proxy_tcb(self):
+        """Inform about waiting for Flickr."""
 
+        gtk.gdk.threads_enter()
+        self.set_status('Waiting for authorization from Flickr...')
+        gtk.gdk.threads_leave()
+
+    def flickr_progress_cb(self, state, meta):
+        """Update the progress bar from the Flickr update."""
+
+        msgs = {
+            'update': 'Loading updates from Flickr...',
+            'index': 'Indexing photos on Flickr...',
+        }
+
+        a, b = meta
+        self.set_status(
+            msgs[state],
+            (float(a) / float(b))
+        )
+
+    def flickr_indexes_cb(self, indexes):
+        """Register file and Flickr indexes."""
+
+        self.file_index, self.flickr_index = indexes
+
+        if not self.flickr_index.proxy:
+            self.alert('Couldn\'t connect to Flickr.')
+
+class Views(StatusUI):
+    def __init__(self):
         self.PIXBUF_UNKNOWN = gtk.icon_theme_get_default().load_icon('gtk-missing-image', gtk.ICON_SIZE_DIALOG, 0).scale_simple(128, 128, gtk.gdk.INTERP_BILINEAR)
 
-        # Hookup the widgets through Glade.
-        self.glade = gtk.glade.xml_new_from_buffer(self.XML, len(self.XML))
-        self.glade.signal_autoconnect(self)
+        self._refs = {}
+        self._thumbs = {}
+        self._filenames = []
 
         # Setup the views.
         def _(view_name):
@@ -97,10 +201,6 @@ class Preview:
         _('ignore')
         _('new')
         _('upload')
-
-        # Show the UI!
-        self.window = self.glade.get_widget('window')
-        self.window.show_all()
 
     def on_item_activated(self, view, path):
         """Open selected items in a view."""
@@ -215,7 +315,7 @@ class Preview:
         iter = store.append((
             filename,
             gobject.filename_display_basename(filename),
-            self.thumbs.get(filename, self.PIXBUF_UNKNOWN)
+            self._thumbs.get(filename, self.PIXBUF_UNKNOWN)
         ))
 
         # Reorder the drop, if necessary.
@@ -235,7 +335,7 @@ class Preview:
 
             ops[drop](iter, store.get_iter(path))
 
-        self.refs[filename] = gtk.TreeRowReference(store, store.get_path(iter))
+        self._refs[filename] = gtk.TreeRowReference(store, store.get_path(iter))
 
     def _view_remove(self, view, path):
         """Remove an image from a view."""
@@ -249,70 +349,7 @@ class Preview:
         if len(store) == 0:
             self._view_init(view)
 
-    def request_images_cb(self, callback):
-        """Request a folder of images to operate upon."""
-
-        fcd = gtk.FileChooserDialog(
-            title='Select folder(s) to scan for photos...',
-            parent=self.window,
-            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
-            buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                     gtk.STOCK_OPEN, gtk.RESPONSE_OK),
-        )
-        fcd.props.local_only = True
-        fcd.props.select_multiple = True
-
-        filter = gtk.FileFilter()
-        filter.set_name('Images')
-        filter.add_custom(
-            gtk.FILE_FILTER_FILENAME,
-            lambda info: RE_IMAGES.match(info[0])
-        )
-        fcd.add_filter(filter)
-
-        gtk.gdk.threads_enter()
-        resp = fcd.run()
-        gtk.gdk.threads_leave()
-
-        # We only cancel if specifically requested.
-        if resp == gtk.RESPONSE_OK:
-            fns = fcd.get_filenames()
-
-            fcd.destroy()
-
-            callback(fns)
-        else:
-            self.on_close(None)
-
-    def flickr_proxy_tcb(self):
-        """Inform about waiting for Flickr."""
-
-        gtk.gdk.threads_enter()
-        self.set_status('Waiting for authorization from Flickr...')
-        gtk.gdk.threads_leave()
-
-    def flickr_progress_cb(self, state, meta):
-        """Update the progress bar from the Flickr update."""
-
-        msgs = {
-            'update': 'Loading updates from Flickr...',
-            'index': 'Indexing photos on Flickr...',
-        }
-
-        a, b = meta
-        self.set_status(
-            msgs[state],
-            (float(a) / float(b))
-        )
-
-    def flickr_indexes_cb(self, indexes):
-        """Register file and Flickr indexes."""
-
-        self.file_index, self.flickr_index = indexes
-
-        if not self.flickr_index.proxy:
-            self.alert('Couldn\'t connect to Flickr.')
-
+class LoadCallbacks(Views, StatusUI):
     def loading_images_cb(self, queue):
         """Load images into the new view."""
 
@@ -361,10 +398,10 @@ class Preview:
         if results:
             fn, pb_new = results
 
-            self.thumbs[fn] = pb_new
+            self._thumbs[fn] = pb_new
 
-            if self.refs.has_key(fn):
-                ref = self.refs[fn]
+            if self._refs.has_key(fn):
+                ref = self._refs[fn]
 
                 p = ref.get_path()
                 store = ref.get_model()
@@ -374,8 +411,8 @@ class Preview:
                     store[p] = (fn, bn, pb_new)
 
                 self.set_status(
-                    "%u of %u thumbnails loaded" % (len(self.thumbs), len(self.refs)),
-                    (float(len(self.thumbs)) / float(len(self.refs)))
+                    "%u of %u thumbnails loaded" % (len(self._thumbs), len(self._refs)),
+                    (float(len(self._thumbs)) / float(len(self._refs)))
                 )
             else:
                 LOG.critical("Icon reference miss on %s (threading issue)" % fn)
@@ -392,6 +429,43 @@ class Preview:
 
     def loading_done_cb(self, filenames):
         self.set_status(None)
+
+class UploadCallbacks(StatusUI):
+    def __init__(self, dry_run):
+        StatusUI.__init__(self)
+
+        self.dry_run = dry_run
+
+    def on_ok(self, button):
+        """Process the categorized images."""
+
+        self.set_sensitive(False)
+
+        # Mark images as "already uploaded."
+
+        ignores = [fn
+                   for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
+                   if fn]
+
+        if not self.dry_run:
+            for fn in ignores:
+                self.flickr_index.ignore(self.file_index[fn])
+
+        # Upload the images!
+
+        if self.dry_run:
+            self.on_close(None)
+        else:
+            uploads = [fn
+                       for fn, bn, pb in self.glade.get_widget('view_upload').get_model()
+                       if fn]
+
+            t_upload = FlickrUploader(
+                self.flickr_index.proxy,
+                progress_callback=idle_proxy(self.upload_progress_cb),
+                done_callback=idle_proxy(self.upload_done_cb)
+            )
+            t_upload.start(uploads)
 
     def upload_progress_cb(self, count, total):
         """Update the progress bar on the Flickr upload."""
@@ -416,110 +490,59 @@ class Preview:
         else:
             self.alert('Upload failed!', exit_on_close=True)
 
-    def set_status(self, status, fraction=None):
-        """Update the progress bar."""
+class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
+    XML = pkg_resources.resource_string(__name__, 'preview.glade')
 
-        progress = self.glade.get_widget('progressbar')
+    def __init__(self, dry_run=False):
+        # Hookup the widgets through Glade.
+        self.glade = gtk.glade.xml_new_from_buffer(self.XML, len(self.XML))
+        self.glade.signal_autoconnect(self)
 
-        if status:
-            progress.props.text = status
+        LoginCallbacks.__init__(self)
+        LoadCallbacks.__init__(self)
+        UploadCallbacks.__init__(self, dry_run)
 
-            if fraction:
-                progress.props.fraction = fraction
-            else:
-                progress.pulse()
+        # Show the UI!
+        self.window = self.glade.get_widget('window')
+        self.window.show_all()
+
+    def request_images_cb(self, callback):
+        """Request a folder of images to operate upon."""
+
+        fcd = gtk.FileChooserDialog(
+            title='Select folder(s) to scan for photos...',
+            parent=self.window,
+            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+            buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                     gtk.STOCK_OPEN, gtk.RESPONSE_OK),
+        )
+        fcd.props.local_only = True
+        fcd.props.select_multiple = True
+
+        filter = gtk.FileFilter()
+        filter.set_name('Images')
+        filter.add_custom(
+            gtk.FILE_FILTER_FILENAME,
+            lambda info: RE_IMAGES.match(info[0])
+        )
+        fcd.add_filter(filter)
+
+        gtk.gdk.threads_enter()
+        resp = fcd.run()
+        gtk.gdk.threads_leave()
+
+        # We only cancel if specifically requested.
+        if resp == gtk.RESPONSE_OK:
+            fns = fcd.get_filenames()
+
+            fcd.destroy()
+
+            callback(fns)
         else:
-            progress.props.fraction = 0.0
-            progress.props.text = ''
-
-    def set_sensitive(self, sensitivity):
-        """Update the sensitivity of the window."""
-
-        buttons = [self.glade.get_widget('button_ok'), ]
-        views = map(self.glade.get_widget, ('view_ignore', 'view_new', 'view_upload'))
-
-        map(lambda v: v.set_sensitive(sensitivity), views + buttons)
-
-    def alert(self, message, exit_on_close=False):
-        """Display an alert in the top of window."""
-
-        LOG.warn(message)
-
-        # Build the alert pane.
-
-        text = gtk.Label(message)
-
-        img = gtk.Image()
-        img.set_from_stock(gtk.STOCK_CLOSE, gtk.ICON_SIZE_MENU)
-
-        close = gtk.Button()
-        close.set_image(img)
-        close.set_relief(gtk.RELIEF_NONE)
-
-        hbox = gtk.HBox()
-        hbox.pack_start(text)
-        hbox.pack_start(close, expand=False)
-
-        frame = gtk.Frame()
-        frame.add(hbox)
-        frame.modify_bg(gtk.STATE_NORMAL, gtk.gdk.color_parse('yellow'))
-        frame.set_shadow_type(gtk.SHADOW_OUT)
-
-        ebox = gtk.EventBox()
-        ebox.add(frame)
-
-        vbox = self.glade.get_widget('vbox')
-        vbox.pack_start(ebox, expand=False)
-        vbox.reorder_child(ebox, 0)
-
-        # Connect events for destroying the pane and exiting the application.
-
-        def _(widget):
-            widget.destroy()
-
-            if exit_on_close:
-                self.on_close(widget)
-
-        close.connect('clicked', lambda b: _(ebox))
-        ebox.connect('button-release-event', lambda w, e: _(w))
-        ebox.connect('enter-notify-event', lambda w, e: frame.set_shadow_type(gtk.SHADOW_IN))
-        ebox.connect('leave-notify-event', lambda w, e: frame.set_shadow_type(gtk.SHADOW_OUT))
-
-        vbox.show_all()
-
-    def on_ok(self, button):
-        """Process the categorized images."""
-
-        self.set_sensitive(False)
-
-        # Mark images as "already uploaded."
-
-        ignores = [fn
-                   for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
-                   if fn]
-
-        if not self.dry_run:
-            for fn in ignores:
-                self.flickr_index.add(self.file_index[fn], None)
-
-        # Upload the images!
-
-        if self.dry_run:
             self.on_close(None)
-        else:
-            uploads = [fn
-                       for fn, bn, pb in self.glade.get_widget('view_upload').get_model()
-                       if fn]
-
-            t_upload = FlickrUploader(
-                self.flickr_index.proxy,
-                progress_callback=idle_proxy(self.upload_progress_cb),
-                done_callback=idle_proxy(self.upload_done_cb)
-            )
-            t_upload.start(uploads)
 
     def on_close(self, widget, user_data=None):
-        """Quit!"""
+        """Quit, but warn if there are unsaved changes."""
 
         # Alert if there are unsaved changes.
 
@@ -552,14 +575,22 @@ class Preview:
 
         gtk.main_quit()
 
-def idle_proxy(func):
-    """Thunk a function into the gobject event loop."""
+    def on_exception(self, type, value, traceback):
+        """Show an error dialog in-case of an unhandled exception."""
 
-    def _(proxy):
-        func, args, kwargs = proxy
-        return func(*args, **kwargs)
+        sys.__excepthook__(type, value, traceback)
 
-    return lambda *args, **kwargs: gobject.idle_add(_, (func, args, kwargs))
+        md = gtk.MessageDialog(
+            parent=self.window,
+            flags=gtk.DIALOG_MODAL,
+            type=gtk.MESSAGE_ERROR,
+            buttons=gtk.BUTTONS_CLOSE,
+            message_format='Oh ****! An error occurred!'
+        )
+        md.format_secondary_text('We\'re not going to lie to you... everything is broken.\n\nThis is entirely our fault, and we\'re really-really sorry.\n\nHopefully, the crash recovery code will make this not very inconvenient.\n\nBut, no promises.\n\nJeez, yeah, again... sorry. :-(')
+        md.run()
+
+        gtk.main_quit()
 
 def run():
     # Ensure we're graphical.
@@ -597,4 +628,5 @@ def run():
     else:
         gobject.idle_add(preview.request_images_cb, lambda fns: t_flickr.start((options, fns)))
 
+    sys.excepthook = preview.on_exception
     gtk.main()

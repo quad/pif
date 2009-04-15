@@ -118,8 +118,8 @@ class IndexTests(unittest.TestCase):
     def test_empty(self):
         """Empty Flickr index"""
 
-        assert self.index.last_update == 1
         assert not self.index.keys()
+        assert self.index.last_update == 1
 
     def test_refresh_fail_response(self):
         """Failed refresh from Flickr"""
@@ -131,15 +131,15 @@ class IndexTests(unittest.TestCase):
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
 
         self.index.refresh()
-        assert len(self.index.keys()) == 1, self.index.keys()   # Should only be 'last_update'
+        assert not self.index.keys()
         assert self.index.last_update == 1
 
     XML_DATA = {
-        2717638353: {
+        '2717638353': {
             'farm': 4,
             'height': 1024,
             'id': 2717638353,
-            'last_update': 1227123744,
+            'lastupdate': 1227123744,
             'original_format': 'jpg',
             'original_secret': '1111111111',
             'server': 3071,
@@ -147,11 +147,11 @@ class IndexTests(unittest.TestCase):
             'width': 1544,
         },
 
-        2658720703: {
+        '2658720703': {
             'farm': 3,
             'height': 1500,
             'id': 2658720703,
-            'last_update': 1226520673,
+            'lastupdate': 1226520673,
             'original_format': 'jpg',
             'original_secret': 'yyyyyyyyyy',
             'server': 2126,
@@ -159,11 +159,11 @@ class IndexTests(unittest.TestCase):
             'width': 1000,
         },
 
-        2740209939: {
+        '2740209939': {
             'farm': 4,
             'height': 2736,
             'id': 2740209939,
-            'last_update': 1222928301,
+            'lastupdate': 1222928301,
             'original_format': 'jpg',
             'original_secret': '3333333333',
             'server': 3108,
@@ -173,16 +173,14 @@ class IndexTests(unittest.TestCase):
     }
 
     def _mock_photos_http(self):
-        class MockResponse(dict):
-            def __init__(self, status, length):
-                self.status = status
-                self['content-range'] = '%u-%u/%u' % ((length - 513), (length - 1), length)
+        self.shorthashes = {}
 
-        responses = []
+        def _mock_sh(photo):
+            id = photo['id']
 
-        for id, values in self.XML_DATA.iteritems():
             data = ('*' * pif.TAILHASH_SIZE + str(id))[:512]
-            values['shorthash'] = pif.make_shorthash(
+            values = self.XML_DATA[id]
+            shorthash = pif.make_shorthash(
                 data,
                 values['original_format'],
                 values['size'],
@@ -190,18 +188,19 @@ class IndexTests(unittest.TestCase):
                 values['height'],
             )
 
-            responses.append((MockResponse(206, values['size']), data))
+            self.shorthashes[id] = shorthash
+            return shorthash
 
-        import httplib2
-        minimock.mock('httplib2.Http.request', returns_iter=responses)
+        minimock.mock('pif.flickr.get_photo_shorthash', returns_func=_mock_sh)
     
     def _check_photo_data(self, photos):
-        assert (len(photos) - 1) == len(self.XML_DATA), "len(photos) == %u, len(self.XML_DATA) == %u" % (len(photos), len(self.XML_DATA))
+        assert len(photos) == len(self.XML_DATA), "len(photos) == %u, len(self.XML_DATA) == %u" % (len(photos), len(self.XML_DATA))
 
+        # TODO: Check all values against the dictionary.
         for id, values in self.XML_DATA.iteritems():
-            shorthash = values['shorthash']
+            shorthash = self.shorthashes[id]
             assert photos.has_key(shorthash)
-            assert id in photos[shorthash], id
+            assert id == photos[shorthash][0]
 
     def test_refresh_empty_response(self):
         """Empty response from Flickr"""
@@ -213,7 +212,8 @@ class IndexTests(unittest.TestCase):
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
 
         self.index.refresh()
-        assert len(self.index.keys()) == 1, self.index.keys()   # Should only be 'last_update'
+        assert not self.index.keys()
+        assert self.index.last_update == 1
 
     def test_refresh_single_page(self):
         """Single page, multiple photos"""
@@ -289,14 +289,27 @@ class IndexTests(unittest.TestCase):
 
         # Make a noticable change that isn't reflected in the user data.
 
-        self.index['abc123'] = ()
+        self.index.ignore('abc123')
         
         # Refresh again...
 
         self._mock_photos_http()
         self.index.refresh()
 
-        assert self.index['abc123'] == ()
+        assert self.index['abc123'] == self.index.STUB
 
     # TODO: Test progress callbacks.
-    # TODO: Test .add() appending to the tuples.
+    # TODO: Test .add()
+    # TODO: Test .ignore()
+
+class IndexRefreshFailures(unittest.TestCase):
+    def setUp(self):
+        self.proxy = Mock('FlickrAPI')
+        self.proxy.photos_recentlyUpdated.mock_returns = empty_xml
+
+        self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
+        self.index = FlickrIndex(self.proxy, self.index_fn)
+
+    def tearDown(self):
+        minimock.restore()
+        os.remove(self.index_fn)
