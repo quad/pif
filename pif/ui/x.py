@@ -545,10 +545,10 @@ class Preview:
         # Save changes!
 
         if self.file_index:
-            self.file_index.sync()
+            self.file_index.close()
 
         if not self.dry_run and self.flickr_index:
-            self.flickr_index.sync()
+            self.flickr_index.close()
 
         gtk.main_quit()
 

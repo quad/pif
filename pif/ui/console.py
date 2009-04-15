@@ -40,7 +40,7 @@ def run():
             else:
                 flickr_index.upload(filename=fn, callback=_)
 
-    file_index.sync()
+    file_index.close()
 
     if not options.dry_run:
-        flickr_index.sync()
+        flickr_index.close()
