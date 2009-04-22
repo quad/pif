@@ -8,7 +8,6 @@ import optparse
 import os
 import os.path
 import re
-import time
 
 import pif.flickr
 import pif.local
