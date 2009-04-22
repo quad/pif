@@ -9,8 +9,13 @@ def proxy_callback():
     time.sleep(5)
 
 def progress_callback(state, meta):
+    msgs = {
+        'update': 'Loading updates from Flickr...',
+        'index': 'Indexing photos on Flickr...',
+    }
+
     a, b = meta
-    LOG.debug("Flickr: %s, %u / %u" % (state, a, b))
+    LOG.info("%s (%u / %u)" % (msgs[state], a, b))
 
 def run():
     OPTIONS.add_option('-m', '--mark', action='store_true',
