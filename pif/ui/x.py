@@ -350,6 +350,11 @@ class Views(StatusUI):
             self._view_init(view)
 
 class LoadCallbacks(Views, StatusUI):
+    def load_image_tcb(self, queue, filename):
+        """Load an image."""
+
+        queue.put(filename)
+
     def loading_images_cb(self, queue):
         """Load images into the new view."""
 
@@ -380,10 +385,13 @@ class LoadCallbacks(Views, StatusUI):
             self.set_status(None)
             self.window.props.title = "%u images - pif" % count
 
-    def load_image_tcb(self, queue, filename):
-        """Load an image."""
+    def load_thumb_tcb(self, queue, filename):
+        """Load a thumbnail."""
 
-        queue.put(filename)
+        queue.put((
+            filename,
+            exif_orient(gtk.gdk.pixbuf_new_from_file_at_size(filename, 128, 128))
+        ))
 
     def loading_thumbs_cb(self, queue):
         """Load thumbnails into the appropriate view."""
@@ -418,14 +426,6 @@ class LoadCallbacks(Views, StatusUI):
                 LOG.critical("Icon reference miss on %s (threading issue)" % fn)
 
             return True
-
-    def load_thumb_tcb(self, queue, filename):
-        """Load a thumbnail."""
-
-        queue.put((
-            filename,
-            exif_orient(gtk.gdk.pixbuf_new_from_file_at_size(filename, 128, 128))
-        ))
 
     def loading_done_cb(self, filenames):
         self.set_status(None)
@@ -488,7 +488,7 @@ class UploadCallbacks(StatusUI):
         if success:
             self.on_close(None)
         else:
-            self.alert('Upload failed!', exit_on_close=True)
+            self.alert('Upload to Flickr failed!', exit_on_close=True)
 
 class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
     XML = pkg_resources.resource_string(__name__, 'preview.glade')
@@ -510,7 +510,7 @@ class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
         """Request a folder of images to operate upon."""
 
         fcd = gtk.FileChooserDialog(
-            title='Select folder(s) to scan for photos...',
+            title='Select folder(s) with images...',
             parent=self.window,
             action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
             buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
@@ -621,7 +621,8 @@ def run():
         done_callback=lambda indexes, filenames: idle_proxy(preview.flickr_indexes_cb(indexes)) and t_image.start(filenames)
     )
 
-    # Let the user select files if they weren't specified.
+    # Let the user select files if none were specified.
+
     if args:
         t_flickr.start(opts)
     else:
