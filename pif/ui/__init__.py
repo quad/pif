@@ -44,8 +44,8 @@ OPTIONS.add_option('-v', '--verbose', action='store_true',
 def open_proxy(callback):
     try:
         return pif.flickr.get_proxy(wait_callback=callback)
-    except IOError:
-        LOG.error('Could not connect to Flickr - did not update the index.')
+    except (pif.ui.FlickrError, IOError):
+        LOG.error('Could not connect to Flickr.')
         return None
 
 def open_indexes(proxy):
@@ -84,21 +84,32 @@ def common_run(opts, proxy_callback, progress_callback):
         else:
             logging.root.setLevel(logging.WARN)
 
+    # (Maybe) Reset the Flickr index.
+
     if options.reset and os.path.isfile(FLICKR_INDEX):
         os.remove(FLICKR_INDEX)
 
+    # Get the Flickr proxy and open the indexes.
+
     proxy = open_proxy(proxy_callback)
 
-    indexes = open_indexes(proxy)
-    file_index, flickr_index = indexes
+    file_index, flickr_index = open_indexes(proxy)
+
+    # (Maybe) Refresh the Flickr index.
 
     if not options.no_sync:
-        flickr_index.refresh(progress_callback)
+        try:
+            flickr_index.refresh(progress_callback)
+        except (pif.flickr.FlickrError, IOError):
+            flickr_index = None
+
+            LOG.exception('Flickr refresh failed.')
 
     # Find images to be uploaded.
+
     images = normalized_filelist(args)
 
     if not options.force:
         images = images_not_uploaded((file_index, flickr_index), images)
 
-    return indexes, images
+    return (file_index, flickr_index), images
