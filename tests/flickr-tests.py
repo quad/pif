@@ -100,14 +100,10 @@ class OnlineProxyTests(unittest.TestCase):
         assert self.hit_cb
 
 class IndexTests(unittest.TestCase):
-    def setUp(self):
-        empty_xml = XML("""
-                        <rsp>
-                            <photos />
-                        </rsp>""")
-        self.proxy = Mock('FlickrAPI')
-        self.proxy.photos_recentlyUpdated.mock_returns = empty_xml
+    """Flickr Index API tests."""
 
+    def setUp(self):
+        self.proxy = Mock('FlickrAPI')
         self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
         self.index = FlickrIndex(self.proxy, filename=self.index_fn)
 
@@ -133,6 +129,27 @@ class IndexTests(unittest.TestCase):
         self.index.refresh()
         assert not self.index.keys()
         assert self.index.last_update == 1
+
+    def test_refresh_empty_response(self):
+        """Empty response from Flickr"""
+
+        photos_xml = XML("""
+                        <rsp>
+                            <photos />
+                        </rsp>""")
+        self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
+
+        self.index.refresh()
+        assert not self.index.keys()
+        assert self.index.last_update == 1
+
+    # TODO: Test progress callbacks.
+    # TODO: Test .add()
+    # TODO: Test shorthash collisions.
+    # TODO: Test .ignore()
+
+class IndexRefreshTests(unittest.TestCase):
+    """Flickr Index refresh tests."""
 
     XML_DATA = {
         '2717638353': {
@@ -172,9 +189,19 @@ class IndexTests(unittest.TestCase):
         }
     }
 
-    def _mock_photos_http(self):
-        self.shorthashes = {}
+    def setUp(self):
+        self.proxy = Mock('FlickrAPI')
+        self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
+        self.index = FlickrIndex(self.proxy, filename=self.index_fn)
 
+        self.shorthashes = {}
+        self._mock_photos_http()
+
+    def tearDown(self):
+        minimock.restore()
+        os.remove(self.index_fn)
+
+    def _mock_photos_http(self):
         def _mock_sh(photo):
             id = photo['id']
 
@@ -196,24 +223,12 @@ class IndexTests(unittest.TestCase):
     def _check_photo_data(self, photos):
         assert len(photos) == len(self.XML_DATA), "len(photos) == %u, len(self.XML_DATA) == %u" % (len(photos), len(self.XML_DATA))
 
-        # TODO: Check all values against the dictionary.
+        # Check data against the dictionary.
         for id, values in self.XML_DATA.iteritems():
             shorthash = self.shorthashes[id]
-            assert photos.has_key(shorthash)
-            assert id == photos[shorthash][0]
+            assert id, values['lastupdate'] == photos[shorthash]
 
-    def test_refresh_empty_response(self):
-        """Empty response from Flickr"""
-
-        photos_xml = XML("""
-                        <rsp>
-                            <photos />
-                        </rsp>""")
-        self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
-
-        self.index.refresh()
-        assert not self.index.keys()
-        assert self.index.last_update == 1
+        assert photos.last_update == max([v['lastupdate'] for v in self.XML_DATA.values()])
 
     def test_refresh_single_page(self):
         """Single page, multiple photos"""
@@ -228,12 +243,8 @@ class IndexTests(unittest.TestCase):
                         </rsp>""")
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
 
-        self._mock_photos_http()
-
         self.index.refresh()
-
         self._check_photo_data(self.index)
-        assert self.index.last_update == 1227123744
 
     def test_refresh_multi_page(self):
         """Multiple pages, single photos"""
@@ -261,12 +272,8 @@ class IndexTests(unittest.TestCase):
         self.proxy.photos_recentlyUpdated.mock_returns = None
         self.proxy.photos_recentlyUpdated.mock_returns_iter = iter([photos_xml_1, photos_xml_2, photos_xml_3])
 
-        self._mock_photos_http()
-
         self.index.refresh()
-
         self._check_photo_data(self.index)
-        assert self.index.last_update == 1227123744
 
     def test_refresh_duplicate(self):
         """Non-destructive updates from Flickr"""
@@ -283,33 +290,16 @@ class IndexTests(unittest.TestCase):
 
         # Test the initial refresh.
 
-        self._mock_photos_http()
         self.index.refresh()
         self._check_photo_data(self.index)
 
         # Make a noticable change that isn't reflected in the user data.
 
         self.index.ignore('abc123')
-        
-        # Refresh again...
-
-        self._mock_photos_http()
         self.index.refresh()
 
         assert self.index['abc123'] == self.index.STUB
 
-    # TODO: Test progress callbacks.
-    # TODO: Test .add()
-    # TODO: Test .ignore()
-
-class IndexRefreshFailures(unittest.TestCase):
-    def setUp(self):
-        self.proxy = Mock('FlickrAPI')
-        self.proxy.photos_recentlyUpdated.mock_returns = empty_xml
-
-        self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
-        self.index = FlickrIndex(self.proxy, self.index_fn)
-
-    def tearDown(self):
-        minimock.restore()
-        os.remove(self.index_fn)
+# TODO: Test refresh failures.
+# TODO: Test .get_photo_shorthash
+# TODO: Test .get_photo_shorthashes
