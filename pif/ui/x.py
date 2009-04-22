@@ -516,7 +516,6 @@ class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
             buttons=(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                      gtk.STOCK_OPEN, gtk.RESPONSE_OK),
         )
-        fcd.props.local_only = True
         fcd.props.select_multiple = True
 
         filter = gtk.FileFilter()
