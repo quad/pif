@@ -35,8 +35,8 @@ OPTIONS.add_option('-n', '--dry-run', action='store_true',
                    help='perform a trial run with no uploads made')
 OPTIONS.add_option('-r', '--reset', action='store_true',
                    help='reset the local Flickr index')
-OPTIONS.add_option('-x', '--no-sync', action='store_true',
-                   help='do not sync the local Flickr index')
+OPTIONS.add_option('-x', '--no-refresh', action='store_true',
+                   help='do not refresh the local Flickr index')
 OPTIONS.add_option('-v', '--verbose', action='store_true',
                    help='increase verbosity')
 
@@ -96,7 +96,7 @@ def common_run(opts, proxy_callback, progress_callback):
 
     # (Maybe) Refresh the Flickr index.
 
-    if not options.no_sync:
+    if not options.no_refresh:
         try:
             flickr_index.refresh(progress_callback)
         except (pif.flickr.FlickrError, IOError):
