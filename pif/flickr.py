@@ -77,7 +77,9 @@ def get_photo_shorthash(photo):
         headers={'Range': "bytes=-%u" % pif.TAILHASH_SIZE})
 
     f = urllib2.urlopen(req)
-    assert f.code == 206
+
+    if f.code != urllib2.httplib.PARTIAL_CONTENT:
+        raise FlickrError("Got status %s from Flickr" % f.code)
 
     return pif.make_shorthash(
         f.read(),
