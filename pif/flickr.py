@@ -92,28 +92,25 @@ def get_photo_shorthash(photo):
 def get_photos_shorthashes(photos, progress_callback=None):
     """Get shorthashes for Flickr photos."""
 
-    import sys
-
     NUM_WORKERS = 4
 
     failures = []
+    processed_photos = []
     shorthashes = collections.defaultdict(list)
-    processed_photos = 0
 
     def _cb(request, result):
         sh, (p, ) = result, request.args
+        pid = p['id']
 
-        shorthashes[p['id']].append(sh)
+        shorthashes[pid].append(sh)
+        processed_photos.append(pid)
 
         if progress_callback:
-            progress_callback('index', (processed_photos, len(photos)))
-            processed_photos += 1
+            progress_callback('index', (len(processed_photos), len(photos)))
 
     def _ex(request, exc_info):
         (p, ) = request.args
-        failures.append(p)
-
-        LOG.exception("Failed getting shorthash: %s" % (exc_info, ))
+        failures.append(p['id'])
 
     pool = threadpool.ThreadPool(NUM_WORKERS)
 
