@@ -80,7 +80,7 @@ def get_photo_shorthash(photo):
     assert f.code == 206
 
     return pif.make_shorthash(
-        content,
+        f.read(),
         photo['originalformat'],
         int(f.headers['content-range'].split('/')[-1]),
         int(photo['o_width']),
