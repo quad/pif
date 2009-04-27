@@ -47,6 +47,7 @@ _exif_orient_acts = {
 
 def exif_orient(pixbuf):
     """Rotate a Pixbuf to its EXIF orientation."""
+
     o = pixbuf.get_option('orientation')
     
     if o and int(o) in _exif_orient_acts:
