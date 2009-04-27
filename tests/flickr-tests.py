@@ -1,7 +1,7 @@
-import hashlib
 import os
 import tempfile
 import unittest
+import urllib2
 
 from xml.etree.ElementTree import XML
 
@@ -14,7 +14,7 @@ from nose.tools import raises
 
 import pif
 
-from pif.flickr import get_proxy, FlickrIndex
+from pif.flickr import FlickrError, FlickrIndex, get_photo_shorthash, get_photos_shorthashes, get_proxy, recent_photos
 
 class OnlineProxyTests(unittest.TestCase):
     """Flickr proxy tests."""
@@ -22,7 +22,7 @@ class OnlineProxyTests(unittest.TestCase):
     def tearDown(self):
         minimock.restore()
 
-    @raises(flickrapi.FlickrError)
+    @raises(FlickrError)
     def test_invalid_key(self):
         """Proxy with invalid key"""
 
@@ -37,7 +37,7 @@ class OnlineProxyTests(unittest.TestCase):
 
         get_proxy(key='xyzzy')
 
-    @raises(flickrapi.FlickrError)
+    @raises(FlickrError)
     def test_invalid_secret(self):
         """Proxy with invalid secret"""
 
@@ -61,12 +61,12 @@ class OnlineProxyTests(unittest.TestCase):
 
         get_proxy()
 
-    @raises(flickrapi.FlickrError)
+    @raises(FlickrError)
     def test_reject(self):
         """Rejected proxy"""
 
         minimock.mock('flickrapi.FlickrAPI.get_token_part_one')
-        minimock.mock('flickrapi.FlickrAPI.get_token_part_two', raises=flickrapi.FlickrError)
+        minimock.mock('flickrapi.FlickrAPI.get_token_part_two', raises=FlickrError)
 
         get_proxy()
 
@@ -84,7 +84,7 @@ class OnlineProxyTests(unittest.TestCase):
         minimock.mock('flickrapi.FlickrAPI.get_token_part_one')
 
         def _bad_api(auth_response):
-            raise flickrapi.FlickrError('Error: 108')
+            raise FlickrError('Error: 108: Invalid frob')
 
         minimock.mock('flickrapi.FlickrAPI.get_token_part_two', returns_func=_bad_api)
 
@@ -96,7 +96,7 @@ class OnlineProxyTests(unittest.TestCase):
             else:
                 self.hit_cb = True
 
-        self.assertRaises(flickrapi.FlickrError, get_proxy, wait_callback=_cb)
+        self.assertRaises(FlickrError, get_proxy, wait_callback=_cb)
         assert self.hit_cb
 
 class IndexTests(unittest.TestCase):
@@ -143,9 +143,57 @@ class IndexTests(unittest.TestCase):
         assert not self.index.keys()
         assert self.index.last_update == 1
 
-    # TODO: Test progress callbacks.
-    # TODO: Test .add()
-    # TODO: Test shorthash collisions.
+    def test_recent_photos_cb(self):
+        """Callback from recent photos"""
+
+        photos_xml = XML("""
+                        <rsp>
+                            <photos page="1" pages="1" perpage="1" total="1">
+                                <photo farm="4" id="2717638353" isfamily="0" isfriend="0" ispublic="1" lastupdate="1227123744" o_height="1024" o_width="1544" originalformat="jpg" originalsecret="1111111111" owner="25046991@N00" secret="xxxxxxxxxx" server="3071" title="87680027.JPG" />
+                            </photos>
+                        </rsp>""")
+        self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
+
+        self.hit_cb = False
+
+        def _cb(state, meta):
+            self.hit_cb = True
+
+            assert state == 'update', state
+            assert meta == (1, 1), meta
+
+        assert list(recent_photos(self.proxy, progress_callback=_cb))
+        assert self.hit_cb
+
+    def test_add_ok(self):
+        """Add a shorthash to an index."""
+
+        p = {'id': '1234', 'lastupdate': '987654321'}
+        self.index.add(repr(p), p)
+
+        assert repr(p) in self.index
+        assert self.index[repr(p)] == (p['id'], int(p['lastupdate']))
+
+    @raises(ValueError)
+    def test_add_bad_time(self):
+        """Add a shorthash with a bad timestamp."""
+
+        p = {'id': '1234', 'lastupdate': 'abc123'}
+        self.index.add(repr(p), p)
+
+    def test_add_duplicate(self):
+        """Adding colliding shorthashes."""
+
+        p1 = {'id': '1234', 'lastupdate': '987654321'}
+        self.index.add('hash', p1)
+
+        assert self.index['hash'] == (p1['id'], int(p1['lastupdate']))
+
+        p2 = {'id': '1235', 'lastupdate': '289123894'}
+        self.index.add('hash', p2)
+
+        assert self.index['hash'] == (p2['id'], int(p2['lastupdate']))
+
     # TODO: Test .ignore()
 
 class IndexRefreshTests(unittest.TestCase):
@@ -300,6 +348,121 @@ class IndexRefreshTests(unittest.TestCase):
 
         assert self.index['abc123'] == self.index.STUB
 
-# TODO: Test refresh failures.
-# TODO: Test .get_photo_shorthash
-# TODO: Test .get_photo_shorthashes
+    @raises(FlickrError)
+    def test_refresh_failure(self):
+        """Failed update from Flickr"""
+
+        photos = [
+            {'id': '1'},
+            {'id': '2'},
+            {'id': '3'},
+        ]
+
+        def slicer(ps):
+            return [p['id'] for p in ps]
+
+        minimock.mock('pif.flickr.recent_photos', returns=photos)
+        minimock.mock('pif.flickr.get_photos_shorthashes', returns=(slicer(photos[:-1]), slicer(photos[-1:])))
+
+        self.index.refresh()
+
+class ShorthashTests(unittest.TestCase):
+    """Shorthash retrieval tests."""
+
+    def tearDown(self):
+        minimock.restore()
+
+    def test_url_valid(self):
+        """URL for Flickr photos"""
+
+        p = {
+            'farm': '[farmID]',
+            'server': '[serverID]',
+            'id': '123456789',
+            'originalsecret': '[secretID]',
+            'originalformat': 'jpg',
+            'o_width': '128',
+            'o_height': '256',
+        }
+
+        response = Mock('PhotoRequest')
+        response.code = 206
+        response.headers = {'content-range': '0-512/56789'}
+        response.read.mock_returns = 'somerandomcrap'
+
+        def _(url):
+            assert url.get_full_url() == 'http://farm[farmID].static.flickr.com/[serverID]/123456789_[secretID]_o.jpg', url.get_full_url()
+            return response
+
+        urlopen = minimock.mock('urllib2.urlopen', returns_func=_)
+
+        sh = get_photo_shorthash(p)
+
+        assert sh
+        assert isinstance(sh, str)
+
+    @raises(FlickrError)
+    def test_complete(self):
+        """Wrong status from Flickr for photo"""
+
+        p = {
+            'farm': '[farmID]',
+            'server': '[serverID]',
+            'id': '[idID]',
+            'originalsecret': '[secretID]',
+            'originalformat': 'jpg',
+            'o_width': '128',
+            'o_height': '256',
+        }
+
+        response = Mock('PhotoRequest')
+        response.code = 200
+        urlopen = minimock.mock('urllib2.urlopen', returns=response)
+        
+        get_photo_shorthash(p)
+
+    def test_shorthashes_failure(self):
+        """Failure in shorthash batch retrieval."""
+
+        photos = [
+            {'id': '1'},
+            {'id': '2'},
+            {'id': '3'},
+        ]
+
+        def _(photo):
+            if photo['id'] == '2': raise FlickrError
+
+            return 'hash' + photo['id']
+
+        minimock.mock('pif.flickr.get_photo_shorthash', returns_func=_)
+
+        shs, fails = get_photos_shorthashes(photos)
+
+        assert shs and fails
+
+        for pid in [p['id'] for p in photos]:
+            assert pid in shs or pid in fails, pid
+
+    def test_shorthashes_cb(self):
+        """Callback from getting shorthashes"""
+
+        photos = [
+            {'id': '1'},
+        ]
+
+        def _(photo):
+            return 'hash' + photo['id']
+
+        minimock.mock('pif.flickr.get_photo_shorthash', returns_func=_)
+
+        self.hit_cb = False
+
+        def _cb(state, meta):
+            self.hit_cb = True
+
+            assert state == 'index', state
+            assert meta == (1, 1), meta
+
+        assert get_photos_shorthashes(photos, progress_callback=_cb)
+        assert self.hit_cb
