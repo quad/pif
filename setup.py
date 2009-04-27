@@ -17,7 +17,6 @@ setup(
 
     install_requires=[
         'flickrapi',
-        'httplib2',
         'threadpool',
     ],
 
