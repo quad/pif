@@ -28,10 +28,10 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
         try:
             if proxy.get_token_part_two(auth_response):
                 break
-        except FlickrError, e:
+        except FlickrError as e:
             # Wait for frob confirmation.
-            if 'Error: 108' in e.message and \
-               wait_callback and not wait_callback():
+            frob_ok = filter(lambda x: x.startswith('Error: 108'), e)
+            if frob_ok and wait_callback and not wait_callback():
                 continue
             raise
 
