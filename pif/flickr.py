@@ -152,7 +152,9 @@ class FlickrIndex(object, shelve.DbfilenameShelf):
             photos = list(recent_photos(self.proxy, self.last_update, progress_callback))
             shorthashes, failures = get_photos_shorthashes(photos, progress_callback)
 
-            assert not failures
+            if failures:
+                raise FlickrError("Shorthash retrieval failures: %s" % \
+                                  ', '.join(failures))
 
             for p in photos:
                 for sh in shorthashes[p['id']]:
