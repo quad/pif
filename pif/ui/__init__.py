@@ -43,7 +43,7 @@ OPTIONS.add_option('-v', '--verbose', action='store_true',
 def open_proxy(callback):
     try:
         return pif.flickr.get_proxy(wait_callback=callback)
-    except (pif.ui.FlickrError, IOError):
+    except (pif.flickr.FlickrError, IOError):
         LOG.error('Could not connect to Flickr.')
         return None
 
