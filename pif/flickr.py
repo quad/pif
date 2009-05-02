@@ -4,6 +4,8 @@ import shelve
 import threadpool
 import urllib2
 
+from xml.parsers.expat import ExpatError
+
 import flickrapi
 import pkg_resources
 
@@ -21,8 +23,11 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
     # Setup the API proxy.
     proxy = flickrapi.FlickrAPI(key, secret, format='etree')
 
-    # Authorize.
-    auth_response = proxy.get_token_part_one(perms='write')
+    try:
+        # Authorize.
+        auth_response = proxy.get_token_part_one(perms='write')
+    except ExpatError:    # FlickrAPI chokes on non-XML responses. (Catch the first; but, all future ones as fatal.)
+        raise FlickrError('Non-XML response from Flickr')
 
     while True:
         try:
