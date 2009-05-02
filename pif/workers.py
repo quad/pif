@@ -1,100 +1,122 @@
 import logging
-import Queue
+import sys
 import threading
 
 from pif.ui import common_run
 
 LOG = logging.getLogger(__name__)
 
-class FlickrUpdater(threading.Thread):
+class WorkerThread(threading.Thread):
+    """
+    Generic worker thread implementation.
+
+    Requires a mixin implementing CallbackWrapper.
+    """
+
+    class CallbackWrapper:
+        def __init__(self):
+            raise NotImplementedError
+
+    def __init__(self):
+        threading.Thread.__init__(self)
+                
+        self.cbs = self.CallbackWrapper()
+
+        def _(exc_info):
+            t, v, tb = exc_info
+            raise t, v, tb
+        self.cbs._exception = _
+
+        self.setDaemon(True)
+
+    def run(self):
+        args, kwargs = self.args
+
+        try:
+            self.do(*args, **kwargs)
+        except SystemExit:
+            raise
+        except:
+            self.cbs._exception(sys.exc_info())
+
+    def start(self, *args, **kwargs):
+        self.args = (args, kwargs)
+
+        threading.Thread.start(self)
+
+class FlickrUpdater(WorkerThread):
     """Worker thread for updating from Flickr."""
 
     def __init__(self, proxy_callback=None, progress_callback=None, done_callback=None):
-        threading.Thread.__init__(self)
+        WorkerThread.__init__(self)
 
-        self.proxy_callback = proxy_callback
-        self.progress_callback = progress_callback
-        self.done_callback = done_callback
+        self.cbs.proxy = proxy_callback
+        self.cbs.progress = progress_callback
+        self.cbs.done = done_callback
 
         self.setDaemon(True)
 
-    def run(self):
-        if self.proxy_callback:
-            self.proxy_callback()
+    def do(self, opts):
+        if self.cbs.proxy:
+            self.cbs.proxy()
 
-        indexes, filenames = common_run(self.opts, self.proxy_callback, self.progress_callback)
-        self.file_index, self.flickr_index = indexes
+        indexes, filenames = common_run(opts, self.cbs.proxy, self.cbs.progress)
 
-        if self.done_callback:
-            self.done_callback(indexes, filenames)
+        if self.cbs.done:
+            self.cbs.done(indexes, filenames)
 
-    def start(self, opts):
-        self.opts = opts
-
-        threading.Thread.start(self)
-
-class Loader(threading.Thread):
+class Loader(WorkerThread):
     """Generic worker thread for offloading IO-heavy loads."""
 
     def __init__(self, loading_callback=None, work_callback=None, done_callback=None):
-        threading.Thread.__init__(self)
+        WorkerThread.__init__(self)
 
-        self.loading_callback = loading_callback
-        self.work_callback = work_callback
-        self.done_callback = done_callback
+        self.cbs.loading = loading_callback
+        self.cbs.work = work_callback
+        self.cbs.done = done_callback
 
         self.setDaemon(True)
 
-    def run(self):
-        queue = Queue.Queue()
+    def do(self, items):
+        if self.cbs.loading:
+            self.cbs.loading()
 
-        if self.loading_callback:
-            self.loading_callback(queue)
+        results = []
+        for i in items:
+            if self.cbs.work: self.cbs.work(i)
+            results.append(i)
 
-        fns = []
-        for fn in self.filenames:
-            if self.work_callback:
-                self.work_callback(queue, fn)
-            fns.append(fn)
-        queue.put(None)
+        if self.cbs.done:
+            self.cbs.done(results)
 
-        queue.join()
-
-        if self.done_callback:
-            self.done_callback(fns)
-
-    def start(self, filenames):
-        self.filenames = filenames
-
-        threading.Thread.start(self)
-
-class FlickrUploader(threading.Thread):
+class FlickrUploader(WorkerThread):
     """Worker thread for uploading to Flickr."""
 
     def __init__(self, proxy, progress_callback=None, done_callback=None):
-        threading.Thread.__init__(self)
+        WorkerThread.__init__(self)
 
         self.proxy = proxy
-        self.progress_callback = progress_callback
-        self.done_callback = done_callback
+
+        self.cbs.progress = progress_callback
+        self.cbs.done = done_callback
 
         self.setDaemon(True)
 
-    def run(self):
+    def do(self, filenames):
         def _upload(fns):
             for n, fn in enumerate(fns):
-                if self.progress_callback:
+                if self.cbs.progress:
                     def _(progress, done):
                         if done: p = n + 1
                         else: p = n + (progress / 100)
-                        self.progress_callback(p, len(self.filenames))
+                        self.cbs.progress(p, len(filenames))
                 else:
                     _ = None
 
                 yield self.proxy.upload(filename=fn, callback=_)
 
         ids = []
-        for resp in _upload(self.filenames):
+        for resp in _upload(filenames):
             if resp is not None:
                 photo_id = resp.find('photoid')
 
@@ -109,10 +131,5 @@ class FlickrUploader(threading.Thread):
 
         url = 'http://www.flickr.com/tools/uploader_edit.gne?ids=' + ','.join(ids) if ids else None
 
-        if self.done_callback:
-            self.done_callback(len(self.filenames) == len(ids), url)
-
-    def start(self, filenames):
-        self.filenames = filenames
-
-        threading.Thread.start(self)
+        if self.cbs.done:
+            self.cbs.done(len(filenames) == len(ids), url)

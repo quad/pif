@@ -1,6 +1,6 @@
 import collections
+import functools
 import logging
-import Queue
 import sys
 
 import pkg_resources
@@ -12,8 +12,9 @@ import gobject
 import gtk
 import gtk.glade
 
+import pif.workers
+
 from pif.ui import OPTIONS, RE_IMAGES
-from pif.workers import Loader, FlickrUpdater, FlickrUploader
 
 LOG = logging.getLogger(__name__)
 
@@ -55,14 +56,39 @@ def exif_orient(pixbuf):
     else:
         return pixbuf
 
-def idle_proxy(func):
-    """Thunk a function into the gobject event loop."""
+class GObjectWorker:
+    """A mixin for workers under GObject mainloops."""
 
-    def _(proxy):
-        func, args, kwargs = proxy
-        return func(*args, **kwargs)
+    class CallbackWrapper:
+        def __init__(self):
+            def _(exc_info):
+                type, value, traceback = exc_info
+                raise type, value, traceback
 
-    return lambda *args, **kwargs: gobject.idle_add(_, (func, args, kwargs))
+            self._error = _
+
+        def __setattr__(self, name, value):
+           if callable(value): value = self._make_callback(value)
+           self.__dict__[name] = value
+
+        def _make_callback(self, function):
+            assert callable(function)
+
+            def _(*args, **kwargs):
+                gobject.idle_add(
+                    functools.partial(function, *args, **kwargs)
+                )
+
+            return functools.partial(_)
+
+class Loader(GObjectWorker, pif.workers.Loader):
+    pass
+
+class FlickrUpdater(GObjectWorker, pif.workers.FlickrUpdater):
+    pass
+
+class FlickrUploader(GObjectWorker, pif.workers.FlickrUploader):
+    pass
 
 class StatusUI(object):
     def set_status(self, status, fraction=None):
@@ -141,12 +167,10 @@ class LoginCallbacks(StatusUI):
         self.file_index = None
         self.flickr_index = None
 
-    def flickr_proxy_tcb(self):
+    def flickr_proxy_cb(self):
         """Inform about waiting for Flickr."""
 
-        gtk.gdk.threads_enter()
         self.set_status('Waiting for authorization from Flickr...')
-        gtk.gdk.threads_leave()
 
     def flickr_progress_cb(self, state, meta):
         """Update the progress bar from the Flickr update."""
@@ -176,7 +200,6 @@ class Views(StatusUI):
 
         self._refs = {}
         self._thumbs = {}
-        self._filenames = []
 
         # Setup the views.
         def _(view_name):
@@ -351,84 +374,53 @@ class Views(StatusUI):
             self._view_init(view)
 
 class LoadCallbacks(Views, StatusUI):
-    def load_image_tcb(self, queue, filename):
-        """Load an image."""
+    def load_image_start_cb(self):
+        self._file_count = 0
 
-        queue.put(filename)
+    def load_image_cb(self, filename):
+        """Load an image into the new view."""
 
-    def loading_images_cb(self, queue):
-        """Load images into the new view."""
+        self._file_count += 1
 
-        try:
-            fn = queue.get(block=False)
-        except Queue.Empty:
-            return True
+        self.set_status("%u images scanned" % self._file_count)
+        self.window.props.title = "%u images (scanning) - pif" % self._file_count
 
-        if fn:
-            self._filenames.append(fn)
-            queue.task_done()
+    def load_image_done_cb(self, filenames, next_thread):
+        view = self.glade.get_widget('view_new')
+        for fn in filenames:
+            self._view_add(view, fn)
 
-        count = len(self._filenames)
+        self.set_sensitive(True)
+        self.set_status(None)
+        self.window.props.title = "%u images - pif" % self._file_count
 
-        if fn:
-            self.set_status("%u images scanned" % count)
-            self.window.props.title = "%u images (scanning) - pif" % count
+        thumbs = ((fn, exif_orient(gtk.gdk.pixbuf_new_from_file_at_size(fn, 128, 128)))
+                  for fn in filenames)
+        next_thread.start(thumbs)
 
-            return True
-        else:
-            view = self.glade.get_widget('view_new')
-            for fn in self._filenames:
-                self._view_add(view, fn)
-
-            queue.task_done()
-
-            self.set_sensitive(True)
-            self.set_status(None)
-            self.window.props.title = "%u images - pif" % count
-
-    def load_thumb_tcb(self, queue, filename):
-        """Load a thumbnail."""
-
-        queue.put((
-            filename,
-            exif_orient(gtk.gdk.pixbuf_new_from_file_at_size(filename, 128, 128))
-        ))
-
-    def loading_thumbs_cb(self, queue):
+    def load_thumb_cb(self, thumb):
         """Load thumbnails into the appropriate view."""
 
-        try:
-            results = queue.get(block=False)
-        except Queue.Empty:
-            return True
+        filename, pb_new = thumb
 
-        queue.task_done()
+        self._thumbs[filename] = pb_new
 
-        if results:
-            fn, pb_new = results
+        if self._refs.has_key(filename):
+            ref = self._refs[filename]
 
-            self._thumbs[fn] = pb_new
+            p = ref.get_path()
+            store = ref.get_model()
 
-            if self._refs.has_key(fn):
-                ref = self._refs[fn]
+            if p and store:
+                filename, bn, pb_old = store[p]
+                store[p] = (filename, bn, pb_new)
 
-                p = ref.get_path()
-                store = ref.get_model()
+            self.set_status(
+                "%u of %u thumbnails loaded" % (len(self._thumbs), len(self._refs)),
+                (float(len(self._thumbs)) / float(len(self._refs)))
+            )
 
-                if p and store:
-                    fn, bn, pb_old = store[p]
-                    store[p] = (fn, bn, pb_new)
-
-                self.set_status(
-                    "%u of %u thumbnails loaded" % (len(self._thumbs), len(self._refs)),
-                    (float(len(self._thumbs)) / float(len(self._refs)))
-                )
-            else:
-                LOG.critical("Icon reference miss on %s (threading issue)" % fn)
-
-            return True
-
-    def loading_done_cb(self, filenames):
+    def load_thumb_done_cb(self, thumbs):
         self.set_status(None)
 
 class UploadCallbacks(StatusUI):
@@ -463,8 +455,8 @@ class UploadCallbacks(StatusUI):
 
             t_upload = FlickrUploader(
                 self.flickr_index.proxy,
-                progress_callback=idle_proxy(self.upload_progress_cb),
-                done_callback=idle_proxy(self.upload_done_cb)
+                progress_callback=self.upload_progress_cb,
+                done_callback=self.upload_done_cb
             )
             t_upload.start(uploads)
 
@@ -576,19 +568,9 @@ class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
         gtk.main_quit()
 
     def on_exception(self, type, value, traceback):
-        """Show an error dialog in-case of an unhandled exception."""
+        """Quit in-case of an unhandled exception."""
 
         sys.__excepthook__(type, value, traceback)
-
-        md = gtk.MessageDialog(
-            parent=self.window,
-            flags=gtk.DIALOG_MODAL,
-            type=gtk.MESSAGE_ERROR,
-            buttons=gtk.BUTTONS_CLOSE,
-            message_format='Oh ****! An error occurred!'
-        )
-        md.format_secondary_text('We\'re not going to lie to you... everything is broken.\n\nThis is entirely our fault, and we\'re really-really sorry.\n\nHopefully, the crash recovery code will make this not very inconvenient.\n\nBut, no promises.\n\nJeez, yeah, again... sorry. :-(')
-        md.run()
 
         gtk.main_quit()
 
@@ -606,28 +588,27 @@ def run():
     gtk.gdk.threads_init()
     preview = Preview(options.dry_run)
 
-    t_thumb = Loader(
-        loading_callback=idle_proxy(preview.loading_thumbs_cb),
-        work_callback=preview.load_thumb_tcb,
-        done_callback=idle_proxy(preview.loading_done_cb)
+    w_thumb = Loader(
+        work_callback=preview.load_thumb_cb,
+        done_callback=preview.load_thumb_done_cb
     )
-    t_image = Loader(
-        loading_callback=idle_proxy(preview.loading_images_cb),
-        work_callback=preview.load_image_tcb,
-        done_callback=t_thumb.start
+    w_image = Loader(
+        loading_callback=preview.load_image_start_cb,
+        work_callback=preview.load_image_cb,
+        done_callback=lambda filenames: preview.load_image_done_cb(filenames, w_thumb)
     )
-    t_flickr = FlickrUpdater(
-        proxy_callback=preview.flickr_proxy_tcb,
-        progress_callback=idle_proxy(preview.flickr_progress_cb),
-        done_callback=lambda indexes, filenames: idle_proxy(preview.flickr_indexes_cb(indexes)) and t_image.start(filenames)
+    w_flickr = FlickrUpdater(
+        proxy_callback=preview.flickr_proxy_cb,
+        progress_callback=preview.flickr_progress_cb,
+        done_callback=lambda indexes, filenames: preview.flickr_indexes_cb(indexes) or w_image.start(filenames)
     )
 
     # Let the user select files if none were specified.
 
     if args:
-        t_flickr.start(opts)
+        w_flickr.start(opts)
     else:
-        gobject.idle_add(preview.request_images_cb, lambda fns: t_flickr.start((options, fns)))
+        gobject.idle_add(preview.request_images_cb, lambda fns: w_flickr.start((options, fns)))
 
     sys.excepthook = preview.on_exception
     gtk.main()
