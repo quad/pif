@@ -97,7 +97,7 @@ class FileIndexSmallDirTests(unittest.TestCase):
 
         assert self.index[fn] != old_shorthash
 
-    @raises(IOError)
+    @raises(KeyError)
     def test_add_file_invalid(self):
         b_fn = os.path.join(self.tempdir, 'badfile.png')
 
