@@ -69,10 +69,13 @@ def images_not_uploaded(indexes, filenames):
     file_index, flickr_index = indexes
 
     for fn in filenames:
-        if file_index[fn] in flickr_index:
-            LOG.info("%s skipped. (--force to upload)" % fn)
-        else:
-            yield fn
+        try:
+            if file_index[fn] in flickr_index:
+                LOG.info("%s skipped. (--force to upload)" % fn)
+            else:
+                yield fn
+        except KeyError:    # Skip invalid files.
+            LOG.warn("%s is invalid and was skipped." % fn)
 
 def common_run(opts, proxy_callback, progress_callback):
     options, args = opts

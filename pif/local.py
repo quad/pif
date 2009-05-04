@@ -28,8 +28,11 @@ class FileIndex(object, shelve.DbfilenameShelf):
             return shorthash
 
         # Validate the potential image.
-        image = PIL.Image.open(filename)
-        image.verify()
+        try:
+            image = PIL.Image.open(filename)
+            image.verify()
+        except IOError:
+            raise KeyError(filename)
 
         # Gather the metadata to create the shorthash.
         with file(filename) as f:
