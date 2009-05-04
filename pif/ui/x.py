@@ -303,6 +303,32 @@ class Views(StatusUI):
             if p:
                 self._view_remove(view, p)
 
+    def on_view_key(self, view, event):
+        """Move items between views via key-press."""
+
+        _ = lambda n: self.glade.get_widget('view_' + n)
+        dests = {
+            gtk.gdk.keyval_from_name('I'): _('ignore'),
+            gtk.gdk.keyval_from_name('N'): _('new'),
+            gtk.gdk.keyval_from_name('U'): _('upload'),
+        }
+        dest = dests.get(gtk.gdk.keyval_to_upper(event.keyval), None)
+
+        if dest == None or dest == view:
+            return
+
+        # Use TreeRowReferences to maintain reference intergrity.
+        store = view.get_model()
+        refs = [gtk.TreeRowReference(store, p) for p in view.get_selected_items()]
+
+        for r in refs:
+            p = r.get_path()
+            fn, bn, pb = r.get_model()[p]
+
+            if fn:
+                self._view_add(dest, fn)
+                self._view_remove(view, p)
+
     def _view_init(self, view):
         """Initialize a view."""
 

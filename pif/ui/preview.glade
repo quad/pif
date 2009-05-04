@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Thu Apr  2 16:23:17 2009 -->
+<?xml version="1.0"?>
 <glade-interface>
+  <!-- interface-requires gtk+ 2.16 -->
+  <!-- interface-naming-policy toplevel-contextual -->
   <widget class="GtkWindow" id="window">
     <property name="width_request">620</property>
     <property name="height_request">525</property>
@@ -28,19 +28,21 @@
                       <widget class="GtkScrolledWindow" id="scrolledwindow1">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
-                        <property name="hscrollbar_policy">GTK_POLICY_NEVER</property>
-                        <property name="vscrollbar_policy">GTK_POLICY_AUTOMATIC</property>
+                        <property name="hscrollbar_policy">never</property>
+                        <property name="vscrollbar_policy">automatic</property>
                         <child>
                           <widget class="GtkIconView" id="view_new">
                             <property name="visible">True</property>
                             <property name="sensitive">False</property>
                             <property name="can_focus">True</property>
-                            <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
+                            <property name="selection_mode">multiple</property>
+                            <property name="events">GDK_KEY_RELEASE_MASK | GDK_STRUCTURE_MASK</property>
                             <property name="reorderable">True</property>
                             <signal name="drag_data_get" handler="on_view_drag_data_get"/>
                             <signal name="item_activated" handler="on_item_activated"/>
                             <signal name="drag_data_delete" handler="on_view_drag_data_delete"/>
                             <signal name="drag_data_received" handler="on_view_drag_data_received"/>
+                            <signal name="key_release_event" handler="on_view_key"/>
                           </widget>
                         </child>
                       </widget>
@@ -50,7 +52,7 @@
                 <child>
                   <widget class="GtkLabel" id="label3">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;New&lt;/b&gt;</property>
+                    <property name="label" translatable="yes">&lt;b&gt;New (N)&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                   </widget>
                   <packing>
@@ -80,19 +82,21 @@
                           <widget class="GtkScrolledWindow" id="scrolledwindow3">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
-                            <property name="hscrollbar_policy">GTK_POLICY_NEVER</property>
-                            <property name="vscrollbar_policy">GTK_POLICY_AUTOMATIC</property>
+                            <property name="hscrollbar_policy">never</property>
+                            <property name="vscrollbar_policy">automatic</property>
                             <child>
                               <widget class="GtkIconView" id="view_upload">
                                 <property name="visible">True</property>
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
-                                <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
+                                <property name="selection_mode">multiple</property>
+                                <property name="events">GDK_KEY_RELEASE_MASK | GDK_STRUCTURE_MASK</property>
                                 <property name="reorderable">True</property>
                                 <signal name="drag_data_get" handler="on_view_drag_data_get"/>
                                 <signal name="item_activated" handler="on_item_activated"/>
                                 <signal name="drag_data_delete" handler="on_view_drag_data_delete"/>
                                 <signal name="drag_data_received" handler="on_view_drag_data_received"/>
+                                <signal name="key_release_event" handler="on_view_key"/>
                               </widget>
                             </child>
                           </widget>
@@ -102,7 +106,7 @@
                     <child>
                       <widget class="GtkLabel" id="label1">
                         <property name="visible">True</property>
-                        <property name="label" translatable="yes">&lt;b&gt;Upload&lt;/b&gt;</property>
+                        <property name="label" translatable="yes">&lt;b&gt;Upload (U)&lt;/b&gt;</property>
                         <property name="use_markup">True</property>
                       </widget>
                       <packing>
@@ -110,6 +114,9 @@
                       </packing>
                     </child>
                   </widget>
+                  <packing>
+                    <property name="position">0</property>
+                  </packing>
                 </child>
                 <child>
                   <widget class="GtkFrame" id="frame2">
@@ -123,19 +130,21 @@
                           <widget class="GtkScrolledWindow" id="scrolledwindow2">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
-                            <property name="hscrollbar_policy">GTK_POLICY_NEVER</property>
-                            <property name="vscrollbar_policy">GTK_POLICY_AUTOMATIC</property>
+                            <property name="hscrollbar_policy">never</property>
+                            <property name="vscrollbar_policy">automatic</property>
                             <child>
                               <widget class="GtkIconView" id="view_ignore">
                                 <property name="visible">True</property>
                                 <property name="sensitive">False</property>
                                 <property name="can_focus">True</property>
-                                <property name="selection_mode">GTK_SELECTION_MULTIPLE</property>
+                                <property name="selection_mode">multiple</property>
+                                <property name="events">GDK_KEY_RELEASE_MASK | GDK_STRUCTURE_MASK</property>
                                 <property name="reorderable">True</property>
                                 <signal name="drag_data_get" handler="on_view_drag_data_get"/>
                                 <signal name="item_activated" handler="on_item_activated"/>
                                 <signal name="drag_data_delete" handler="on_view_drag_data_delete"/>
                                 <signal name="drag_data_received" handler="on_view_drag_data_received"/>
+                                <signal name="key_release_event" handler="on_view_key"/>
                               </widget>
                             </child>
                           </widget>
@@ -145,7 +154,7 @@
                     <child>
                       <widget class="GtkLabel" id="label2">
                         <property name="visible">True</property>
-                        <property name="label" translatable="yes">&lt;b&gt;Ignore&lt;/b&gt;</property>
+                        <property name="label" translatable="yes">&lt;b&gt;Ignore (I)&lt;/b&gt;</property>
                         <property name="use_markup">True</property>
                       </widget>
                       <packing>
@@ -186,6 +195,9 @@
                 <property name="visible">True</property>
                 <property name="pulse_step">0.01</property>
               </widget>
+              <packing>
+                <property name="position">0</property>
+              </packing>
             </child>
             <child>
               <widget class="GtkVSeparator" id="vseparator1">
@@ -200,31 +212,36 @@
               <widget class="GtkHButtonBox" id="hbuttonbox1">
                 <property name="visible">True</property>
                 <property name="spacing">6</property>
-                <property name="layout_style">GTK_BUTTONBOX_END</property>
+                <property name="layout_style">end</property>
                 <child>
                   <widget class="GtkButton" id="button_cancel">
+                    <property name="label" translatable="yes">gtk-cancel</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
-                    <property name="label" translatable="yes">gtk-cancel</property>
                     <property name="use_stock">True</property>
-                    <property name="response_id">0</property>
                     <signal name="clicked" handler="on_close"/>
-                    <accelerator key="Escape" modifiers="" signal="clicked"/>
+                    <accelerator key="Escape" signal="clicked"/>
                   </widget>
+                  <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">False</property>
+                    <property name="position">0</property>
+                  </packing>
                 </child>
                 <child>
                   <widget class="GtkButton" id="button_ok">
+                    <property name="label" translatable="yes">gtk-ok</property>
                     <property name="visible">True</property>
                     <property name="sensitive">False</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
-                    <property name="label" translatable="yes">gtk-ok</property>
                     <property name="use_stock">True</property>
-                    <property name="response_id">0</property>
                     <signal name="clicked" handler="on_ok"/>
                   </widget>
                   <packing>
+                    <property name="expand">False</property>
+                    <property name="fill">False</property>
                     <property name="position">1</property>
                   </packing>
                 </child>
