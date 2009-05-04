@@ -321,7 +321,7 @@ class Views(StatusUI):
         store = view.get_model()
         refs = [gtk.TreeRowReference(store, p) for p in view.get_selected_items()]
 
-        for r in refs:
+        for r in reversed(refs):
             p = r.get_path()
             fn, bn, pb = r.get_model()[p]
 
