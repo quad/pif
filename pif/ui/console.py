@@ -44,7 +44,7 @@ def run():
             if options.dry_run:
                 LOG.info("Uploaded %s" % fn)
             else:
-                flickr_index.upload(filename=fn, callback=_)
+                flickr_index.proxy.upload(filename=fn, callback=_)
 
     file_index.close()
 
