@@ -115,7 +115,7 @@ class IndexTests(unittest.TestCase):
         """Empty Flickr index"""
 
         assert not self.index.keys()
-        assert self.index.last_update == 1
+        assert self.index.last_update == 0
 
     def test_refresh_fail_response(self):
         """Failed refresh from Flickr"""
@@ -128,7 +128,7 @@ class IndexTests(unittest.TestCase):
 
         self.index.refresh()
         assert not self.index.keys()
-        assert self.index.last_update == 1
+        assert self.index.last_update == 0
 
     def test_refresh_empty_response(self):
         """Empty response from Flickr"""
@@ -141,7 +141,7 @@ class IndexTests(unittest.TestCase):
 
         self.index.refresh()
         assert not self.index.keys()
-        assert self.index.last_update == 1
+        assert self.index.last_update == 0
 
     def test_recent_photos_cb(self):
         """Callback from recent photos"""
