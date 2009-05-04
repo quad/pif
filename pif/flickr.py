@@ -151,7 +151,7 @@ class FlickrIndex(object, shelve.DbfilenameShelf):
 
     def refresh(self, progress_callback=None):
         if self.proxy:
-            photos = list(recent_photos(self.proxy, self.last_update, progress_callback))
+            photos = list(recent_photos(self.proxy, self.last_update + 1, progress_callback))
             shorthashes, failures = get_photos_shorthashes(photos, progress_callback)
 
             if failures:
@@ -162,4 +162,4 @@ class FlickrIndex(object, shelve.DbfilenameShelf):
                 for sh in shorthashes[p['id']]:
                     self.add(sh, p)
 
-    last_update = property(lambda self: max([1, ] + [lu for id, lu in self.values()]))
+    last_update = property(lambda self: max([0, ] + [lu for id, lu in self.values()]))
