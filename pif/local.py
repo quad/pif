@@ -1,8 +1,5 @@
-from __future__ import with_statement
-
 import logging
 import os
-import os.path
 import shelve
 
 import PIL.Image
