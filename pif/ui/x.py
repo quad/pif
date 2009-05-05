@@ -320,6 +320,9 @@ class Views(StatusUI):
         # Use TreeRowReferences to maintain reference intergrity.
         store = view.get_model()
         refs = [gtk.TreeRowReference(store, p) for p in view.get_selected_items()]
+        
+        # Save the selection path.
+        saved_p = refs[0].get_path()
 
         for r in reversed(refs):
             p = r.get_path()
@@ -328,6 +331,9 @@ class Views(StatusUI):
             if fn:
                 self._view_add(dest, fn)
                 self._view_remove(view, p)
+
+        # Restore the selection path.
+        view.select_path(saved_p)
 
     def _view_init(self, view):
         """Initialize a view."""
