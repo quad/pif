@@ -113,19 +113,22 @@ class FlickrUploader(WorkerThread):
         self.setDaemon(True)
 
     def do(self, filenames):
+        ids = []
+
         def _upload(fns):
             for n, fn in enumerate(fns):
                 if self.cbs.progress:
                     def _(progress, done):
-                        if done: p = n + 1
-                        else: p = n + (progress / 100)
+                        if done:
+                            p = n + 1
+                        else:
+                            p = n + (progress / 100)
                         self.cbs.progress(p, len(filenames))
                 else:
                     _ = None
 
                 yield self.proxy.upload(filename=fn, callback=_)
 
-        ids = []
         for resp in _upload(filenames):
             if resp is not None:
                 photo_id = resp.find('photoid')
