@@ -485,11 +485,11 @@ class UploadCallbacks(StatusUI):
 
         # Mark images as "already uploaded."
 
-        ignores = [fn
-                   for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
-                   if fn]
-
         if not self.dry_run:
+            ignores = [fn
+                       for fn, bn, pb in self.glade.get_widget('view_ignore').get_model()
+                       if fn]
+
             for fn in ignores:
                 self.flickr_index.ignore(self.file_index[fn])
 
