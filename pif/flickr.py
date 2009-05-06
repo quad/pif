@@ -17,6 +17,7 @@ LOG = logging.getLogger(__name__)
 
 API_KEY, API_SECRET = pkg_resources.resource_string(__name__, 'flickr-api.key').split()
 
+
 def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
     """Get a web service proxy to Flickr."""
 
@@ -26,7 +27,7 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
     try:
         # Authorize.
         auth_response = proxy.get_token_part_one(perms='write')
-    except ExpatError:    # FlickrAPI chokes on non-XML responses. (Catch the first; but, all future ones as fatal.)
+    except ExpatError:    # FlickrAPI chokes on non-XML responses.
         raise FlickrError('Non-XML response from Flickr')
 
     while True:
@@ -41,6 +42,7 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
             raise
 
     return proxy
+
 
 def recent_photos(proxy, min_date=1, progress_callback=None):
     """An iterator of the recently updated photos."""
@@ -69,6 +71,7 @@ def recent_photos(proxy, min_date=1, progress_callback=None):
 
         page = int(photos.get('page')) + 1
 
+
 def get_photo_shorthash(photo):
     """Get a shorthash for a Flickr photo."""
 
@@ -93,6 +96,7 @@ def get_photo_shorthash(photo):
         int(photo['o_width']),
         int(photo['o_height']),
     )
+
 
 def get_photos_shorthashes(photos, progress_callback=None):
     """Get shorthashes for Flickr photos."""
@@ -127,7 +131,10 @@ def get_photos_shorthashes(photos, progress_callback=None):
 
     return shorthashes, failures
 
+
 class FlickrIndex(object, shelve.DbfilenameShelf):
+    """Cache for Flickr photo shorthashes."""
+
     STUB = (None, 0)
 
     def __init__(self, proxy, filename):

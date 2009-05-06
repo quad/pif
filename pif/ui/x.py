@@ -18,6 +18,7 @@ from pif.ui import OPTIONS, RE_IMAGES
 
 LOG = logging.getLogger(__name__)
 
+
 def path2uri(pathname):
     """Convert a pathname to a GIO compliant URI."""
 
@@ -25,6 +26,7 @@ def path2uri(pathname):
     f = vfs.get_file_for_path(pathname)
 
     return f.get_uri()
+
 
 def uri2path(uri):
     """Convert a GIO compliant URI to a pathname."""
@@ -46,20 +48,24 @@ _exif_orient_acts = {
     8: lambda pb: pb.rotate_simple(gtk.gdk.PIXBUF_ROTATE_COUNTERCLOCKWISE),
 }
 
+
 def exif_orient(pixbuf):
     """Rotate a Pixbuf to its EXIF orientation."""
 
     o = pixbuf.get_option('orientation')
-    
+
     if o and int(o) in _exif_orient_acts:
         return _exif_orient_acts[int(o)](pixbuf)
     else:
         return pixbuf
 
+
 class GObjectWorker:
     """A mixin for workers under GObject mainloops."""
 
     class CallbackWrapper:
+        """Callback wrapper using the GObject mainloop."""
+
         def __init__(self):
             def _(exc_info):
                 type, value, traceback = exc_info
@@ -68,29 +74,34 @@ class GObjectWorker:
             self._error = _
 
         def __setattr__(self, name, value):
-           if callable(value): value = self._make_callback(value)
-           self.__dict__[name] = value
+            if callable(value):
+                value = self._make_callback(value)
+            self.__dict__[name] = value
 
         def _make_callback(self, function):
             assert callable(function)
 
             def _(*args, **kwargs):
-                gobject.idle_add(
-                    functools.partial(function, *args, **kwargs)
-                )
+                gobject.idle_add(functools.partial(function, *args, **kwargs))
 
             return functools.partial(_)
+
 
 class Loader(GObjectWorker, pif.workers.Loader):
     pass
 
+
 class FlickrUpdater(GObjectWorker, pif.workers.FlickrUpdater):
     pass
+
 
 class FlickrUploader(GObjectWorker, pif.workers.FlickrUploader):
     pass
 
+
 class StatusUI(object):
+    """Mixin for updating the status UI controls."""
+
     def set_status(self, status, fraction=None):
         """Update the progress bar."""
 
@@ -148,7 +159,6 @@ class StatusUI(object):
         vbox.reorder_child(ebox, 0)
 
         # Connect events for destroying the pane and exiting the application.
-
         def _(widget):
             widget.destroy()
 
@@ -162,7 +172,10 @@ class StatusUI(object):
 
         vbox.show_all()
 
+
 class LoginCallbacks(StatusUI):
+    """Mixin for handling Flickr login worker callbacks."""
+
     def __init__(self):
         self.file_index = None
         self.flickr_index = None
@@ -181,10 +194,7 @@ class LoginCallbacks(StatusUI):
         }
 
         a, b = meta
-        self.set_status(
-            msgs[state],
-            (float(a) / float(b))
-        )
+        self.set_status(msgs[state], (float(a) / float(b)))
 
     def flickr_indexes_cb(self, indexes):
         """Register file and Flickr indexes."""
@@ -194,7 +204,10 @@ class LoginCallbacks(StatusUI):
         if not self.flickr_index.proxy:
             self.alert('Couldn\'t connect to Flickr.')
 
+
 class Views(StatusUI):
+    """Mixin for handling icon view interactivity."""
+
     def __init__(self):
         self.PIXBUF_UNKNOWN = gtk.icon_theme_get_default().load_icon('gtk-missing-image', gtk.ICON_SIZE_DIALOG, 0).scale_simple(128, 128, gtk.gdk.INTERP_BILINEAR)
 
@@ -216,8 +229,8 @@ class Views(StatusUI):
 
             # Prepare for Drag and Drop
             dnd_target = ('text/uri-list', gtk.TARGET_SAME_APP, 0)
-            view.enable_model_drag_source(gtk.gdk.BUTTON1_MASK, (dnd_target,), gtk.gdk.ACTION_MOVE)
-            view.enable_model_drag_dest((dnd_target,), gtk.gdk.ACTION_DEFAULT)
+            view.enable_model_drag_source(gtk.gdk.BUTTON1_MASK, (dnd_target, ), gtk.gdk.ACTION_MOVE)
+            view.enable_model_drag_dest((dnd_target, ), gtk.gdk.ACTION_DEFAULT)
 
             # "Empty" the view.
             self._view_init(view)
@@ -274,8 +287,7 @@ class Views(StatusUI):
         store = view.get_model()
 
         selection.set_uris(
-            [path2uri(store[p][0]) for p in view.get_selected_items()]
-        )
+            [path2uri(store[p][0]) for p in view.get_selected_items()])
 
     def on_view_drag_data_received(self, view, context, x, y, selection, info, timestamp):
         """Add items from another view via drag and drop."""
@@ -320,7 +332,7 @@ class Views(StatusUI):
         # Use TreeRowReferences to maintain reference intergrity.
         store = view.get_model()
         refs = [gtk.TreeRowReference(store, p) for p in view.get_selected_items()]
-        
+
         # Save the selection path.
         saved_p = min(refs).get_path()
 
@@ -372,8 +384,7 @@ class Views(StatusUI):
         iter = store.append((
             filename,
             gobject.filename_display_basename(filename),
-            self._thumbs.get(filename, self.PIXBUF_UNKNOWN)
-        ))
+            self._thumbs.get(filename, self.PIXBUF_UNKNOWN)))
 
         # Reorder the drop, if necessary.
         if order:
@@ -406,7 +417,10 @@ class Views(StatusUI):
         if len(store) == 0:
             self._view_init(view)
 
+
 class LoadCallbacks(Views, StatusUI):
+    """Mixin for responding to loader worker callbacks."""
+
     def load_image_start_cb(self):
         self._file_count = 0
 
@@ -438,7 +452,7 @@ class LoadCallbacks(Views, StatusUI):
 
         self._thumbs[filename] = pb_new
 
-        if self._refs.has_key(filename):
+        if filename in self._refs:
             ref = self._refs[filename]
 
             p = ref.get_path()
@@ -450,13 +464,15 @@ class LoadCallbacks(Views, StatusUI):
 
             self.set_status(
                 "%u of %u thumbnails loaded" % (len(self._thumbs), len(self._refs)),
-                (float(len(self._thumbs)) / float(len(self._refs)))
-            )
+                (float(len(self._thumbs)) / float(len(self._refs))))
 
     def load_thumb_done_cb(self, thumbs):
         self.set_status(None)
 
+
 class UploadCallbacks(StatusUI):
+    """Mixin for handling upload UI and worker callbacks."""
+
     def __init__(self, dry_run):
         StatusUI.__init__(self)
 
@@ -489,8 +505,7 @@ class UploadCallbacks(StatusUI):
             t_upload = FlickrUploader(
                 self.flickr_index.proxy,
                 progress_callback=self.upload_progress_cb,
-                done_callback=self.upload_done_cb
-            )
+                done_callback=self.upload_done_cb)
             t_upload.start(uploads)
 
     def upload_progress_cb(self, count, total):
@@ -498,8 +513,7 @@ class UploadCallbacks(StatusUI):
 
         self.set_status(
             "%u of %u photos uploaded to Flickr" % (int(count), total),
-            float(count) / float(total)
-        )
+            float(count) / float(total))
 
     def upload_done_cb(self, success, url):
         """Open the uploaded photos redirection website."""
@@ -508,15 +522,17 @@ class UploadCallbacks(StatusUI):
             gtk.show_uri(
                 gtk.gdk.screen_get_default(),
                 url,
-                gtk.get_current_event_time()
-            )
+                gtk.get_current_event_time())
 
         if success:
             self.on_close(None)
         else:
             self.alert('Upload to Flickr failed!', exit_on_close=True)
 
+
 class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
+    """Controller for main preview window."""
+
     XML = pkg_resources.resource_string(__name__, 'preview.glade')
 
     def __init__(self, dry_run=False):
@@ -548,8 +564,7 @@ class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
         filter.set_name('Images')
         filter.add_custom(
             gtk.FILE_FILTER_FILENAME,
-            lambda info: RE_IMAGES.match(info[0])
-        )
+            lambda info: RE_IMAGES.match(info[0]))
         fcd.add_filter(filter)
 
         gtk.gdk.threads_enter()
@@ -580,8 +595,7 @@ class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
                 flags=gtk.DIALOG_MODAL,
                 type=gtk.MESSAGE_WARNING,
                 buttons=gtk.BUTTONS_OK_CANCEL,
-                message_format='There are unsaved changes.\n\nAre you sure you want to exit?'
-            )
+                message_format='There are unsaved changes.\n\nAre you sure you want to exit?')
 
             resp = md.run()
 
@@ -607,6 +621,7 @@ class Preview(LoginCallbacks, LoadCallbacks, UploadCallbacks):
 
         gtk.main_quit()
 
+
 def run():
     # Ensure we're graphical.
     if not gtk.gdk.get_display():
@@ -623,18 +638,15 @@ def run():
 
     w_thumb = Loader(
         work_callback=preview.load_thumb_cb,
-        done_callback=preview.load_thumb_done_cb
-    )
+        done_callback=preview.load_thumb_done_cb)
     w_image = Loader(
         loading_callback=preview.load_image_start_cb,
         work_callback=preview.load_image_cb,
-        done_callback=lambda filenames: preview.load_image_done_cb(filenames, w_thumb)
-    )
+        done_callback=lambda filenames: preview.load_image_done_cb(filenames, w_thumb))
     w_flickr = FlickrUpdater(
         proxy_callback=preview.flickr_proxy_cb,
         progress_callback=preview.flickr_progress_cb,
-        done_callback=lambda indexes, filenames: preview.flickr_indexes_cb(indexes) or w_image.start(filenames)
-    )
+        done_callback=lambda indexes, filenames: preview.flickr_indexes_cb(indexes) or w_image.start(filenames))
 
     # Let the user select files if none were specified.
 

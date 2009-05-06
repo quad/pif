@@ -5,9 +5,11 @@ from pif.ui import OPTIONS, common_run
 
 LOG = logging.getLogger(__name__)
 
+
 def proxy_callback():
     LOG.info('Waiting for authorization from Flickr...')
     time.sleep(5)
+
 
 def progress_callback(state, meta):
     msgs = {
@@ -17,6 +19,7 @@ def progress_callback(state, meta):
 
     a, b = meta
     LOG.info("%s (%u / %u)" % (msgs[state], a, b))
+
 
 def run():
     OPTIONS.add_option('-m', '--mark', action='store_true',
@@ -35,15 +38,15 @@ def run():
             LOG.info("\t%s" % fn)
     else:
         for fn in images:
-            def _(progress, done):
-                if done:
-                    LOG.info("Uploaded %s" % fn)
-                else:
-                    LOG.debug("Uploading %s... (%s%%)" % (fn, progress))
-
             if options.dry_run:
                 LOG.info("Uploaded %s" % fn)
             else:
+                def _(progress, done):
+                    if done:
+                        LOG.info("Uploaded %s" % fn)
+                    else:
+                        LOG.debug("Uploading %s... (%s%%)" % (fn, progress))
+
                 flickr_index.proxy.upload(filename=fn, callback=_)
 
     file_index.close()

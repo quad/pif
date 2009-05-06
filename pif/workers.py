@@ -6,6 +6,7 @@ from pif.ui import common_run
 
 LOG = logging.getLogger(__name__)
 
+
 class WorkerThread(threading.Thread):
     """
     Generic worker thread implementation.
@@ -14,12 +15,17 @@ class WorkerThread(threading.Thread):
     """
 
     class CallbackWrapper:
+        """A stub callback wrapper."""
+
         def __init__(self):
+            raise NotImplementedError
+
+        def __setattr__(self, name, value):
             raise NotImplementedError
 
     def __init__(self):
         threading.Thread.__init__(self)
-                
+
         self.cbs = self.CallbackWrapper()
 
         def _(exc_info):
@@ -44,6 +50,7 @@ class WorkerThread(threading.Thread):
 
         threading.Thread.start(self)
 
+
 class FlickrUpdater(WorkerThread):
     """Worker thread for updating from Flickr."""
 
@@ -65,6 +72,7 @@ class FlickrUpdater(WorkerThread):
         if self.cbs.done:
             self.cbs.done(indexes, filenames)
 
+
 class Loader(WorkerThread):
     """Generic worker thread for offloading IO-heavy loads."""
 
@@ -83,11 +91,13 @@ class Loader(WorkerThread):
 
         results = []
         for i in items:
-            if self.cbs.work: self.cbs.work(i)
+            if self.cbs.work:
+                self.cbs.work(i)
             results.append(i)
 
         if self.cbs.done:
             self.cbs.done(results)
+
 
 class FlickrUploader(WorkerThread):
     """Worker thread for uploading to Flickr."""

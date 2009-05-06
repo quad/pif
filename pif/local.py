@@ -8,7 +8,10 @@ import pif
 
 LOG = logging.getLogger(__name__)
 
+
 class FileIndex(object, shelve.DbfilenameShelf):
+    """Cache for local file shorthashes."""
+
     def __init__(self, filename):
         shelve.DbfilenameShelf.__init__(self, filename)
 

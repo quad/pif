@@ -17,9 +17,11 @@ LOG = logging.getLogger(__name__)
 if 'DEBUG' in os.environ:
     logging.root.setLevel(logging.DEBUG)
 
-EXTENSIONS = ('gif',
-              'jpeg', 'jpg',
-              'png',)
+EXTENSIONS = (
+    'gif',
+    'jpeg', 'jpg',
+    'png',
+)
 
 RE_IMAGES = re.compile(r".*\.(%s)$" % '|'.join(EXTENSIONS),
                        re.IGNORECASE)
@@ -40,6 +42,7 @@ OPTIONS.add_option('-x', '--no-refresh', action='store_true',
 OPTIONS.add_option('-v', '--verbose', action='store_true',
                    help='increase verbosity')
 
+
 def open_proxy(callback):
     try:
         return pif.flickr.get_proxy(wait_callback=callback)
@@ -47,12 +50,14 @@ def open_proxy(callback):
         LOG.error('Could not connect to Flickr.')
         return None
 
+
 def open_indexes(proxy):
     # Make sure we can land the indexes.
     if not os.path.isdir(CONFIG_DIR):
         os.makedirs(CONFIG_DIR)
 
     return pif.local.FileIndex(FILE_INDEX), pif.flickr.FlickrIndex(proxy, FLICKR_INDEX)
+
 
 def normalized_filelist(filenames):
     for fn in filenames:
@@ -65,6 +70,7 @@ def normalized_filelist(filenames):
         else:
             LOG.warn("%s is not a file or a directory." % fn)
 
+
 def images_not_uploaded(indexes, filenames):
     file_index, flickr_index = indexes
 
@@ -76,6 +82,7 @@ def images_not_uploaded(indexes, filenames):
                 yield fn
         except KeyError:    # Skip invalid files.
             LOG.warn("%s is invalid and was skipped." % fn)
+
 
 def common_run(opts, proxy_callback, progress_callback):
     options, args = opts
