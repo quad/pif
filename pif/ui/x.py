@@ -333,7 +333,8 @@ class Views(StatusUI):
                 self._view_remove(view, p)
 
         # Restore the selection path.
-        view.select_path(saved_p)
+        if self._view_is_active(view):
+            view.select_path(saved_p)
 
     def _view_init(self, view):
         """Initialize a view."""
