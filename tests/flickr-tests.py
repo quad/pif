@@ -4,6 +4,7 @@ import unittest
 import urllib2
 
 from xml.etree.ElementTree import XML
+from xml.parsers.expat import ExpatError
 
 import flickrapi
 import minimock
@@ -58,6 +59,14 @@ class OnlineProxyTests(unittest.TestCase):
 
         import urllib
         minimock.mock('urllib.urlopen', raises=IOError)
+
+        get_proxy()
+
+    @raises(FlickrError)
+    def test_bad_xml(self):
+        """Bad XML from proxy"""
+
+        minimock.mock('flickrapi.FlickrAPI.get_token_part_one', raises=ExpatError)
 
         get_proxy()
 
