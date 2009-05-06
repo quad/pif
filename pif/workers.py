@@ -26,6 +26,7 @@ class WorkerThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
 
+        self.args = ((), ())
         self.cbs = self.CallbackWrapper()
 
         def _(exc_info):
@@ -44,6 +45,9 @@ class WorkerThread(threading.Thread):
             raise
         except:
             self.cbs._exception(sys.exc_info())
+
+    def do(self, *args, **kwargs):
+        raise NotImplementedError
 
     def start(self, *args, **kwargs):
         self.args = (args, kwargs)
