@@ -322,7 +322,7 @@ class Views(StatusUI):
         refs = [gtk.TreeRowReference(store, p) for p in view.get_selected_items()]
         
         # Save the selection path.
-        saved_p = refs[0].get_path()
+        saved_p = min(refs).get_path()
 
         for r in reversed(refs):
             p = r.get_path()
