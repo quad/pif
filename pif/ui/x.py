@@ -331,10 +331,11 @@ class Views(StatusUI):
 
         # Use TreeRowReferences to maintain reference intergrity.
         store = view.get_model()
-        refs = [gtk.TreeRowReference(store, p) for p in view.get_selected_items()]
+        selected = view.get_selected_items()
+        refs = [gtk.TreeRowReference(store, p) for p in selected]
 
         # Save the selection path.
-        saved_p = min(refs).get_path()
+        saved_p = min(selected)
 
         for r in reversed(refs):
             p = r.get_path()
