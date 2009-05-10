@@ -201,7 +201,9 @@ class LoginCallbacks(StatusUI):
 
         self.file_index, self.flickr_index = indexes
 
-        if not self.flickr_index.proxy:
+        if not self.flickr_index:
+            self.alert('Couldn\'t refresh with Flickr.')
+        elif not self.flickr_index.proxy:
             self.alert('Couldn\'t connect to Flickr.')
 
 
