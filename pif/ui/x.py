@@ -189,12 +189,12 @@ class LoginCallbacks(StatusUI):
         """Update the progress bar from the Flickr update."""
 
         msgs = {
-            'update': 'Loading updates from Flickr...',
-            'index': 'Indexing photos on Flickr...',
+            'update': 'Loading update %u of %u from Flickr...' % meta,
+            'index': 'Indexing photo %u of %u on Flickr...' % tuple(map(int, meta)),
         }
 
-        a, b = meta
-        self.set_status(msgs[state], (float(a) / float(b)))
+        fraction = float(meta[0]) / float(meta[1])
+        self.set_status(msgs[state], fraction)
 
     def flickr_indexes_cb(self, indexes):
         """Register file and Flickr indexes."""
