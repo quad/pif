@@ -2,6 +2,7 @@ import logging
 import sys
 import threading
 
+from pif.flickr import FlickrError
 from pif.ui import common_run
 
 LOG = logging.getLogger(__name__)
@@ -133,18 +134,21 @@ class FlickrUploader(WorkerThread):
 
                 yield self.proxy.upload(filename=fn, callback=_)
 
-        for resp in _upload(filenames):
-            if resp is not None:
-                photo_id = resp.find('photoid')
+        try:
+            for resp in _upload(filenames):
+                if resp is not None:
+                    photo_id = resp.find('photoid')
 
-                if photo_id is not None:    # Ugly because the photoid element is a boolean False.
-                    ids.append(photo_id.text)
+                    if photo_id is not None:    # Ugly because the photoid element is a boolean False.
+                        ids.append(photo_id.text)
+                    else:
+                        LOG.debug('No photo_id in the enclosed response.')
+                        break
                 else:
-                    LOG.debug('No photo_id in the enclosed response.')
+                    LOG.debug('No response from the upload proxy.')
                     break
-            else:
-                LOG.debug('No response from the upload proxy.')
-                break
+        except (FlickrError, IOError):
+            LOG.exception('Upload failed.')
 
         url = 'http://www.flickr.com/tools/uploader_edit.gne?ids=' + ','.join(ids) if ids else None
 
