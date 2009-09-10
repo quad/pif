@@ -29,9 +29,9 @@ class OnlineProxyTests(unittest.TestCase):
 
         frob = Mock('frob')
         frob.read.mock_returns = """<?xml version="1.0" encoding="utf-8" ?>
-<rsp stat="fail">
-    <err code="100" msg="Invalid API Key (Key not found)" />
-</rsp>"""
+            <rsp stat="fail">
+                <err code="100" msg="Invalid API Key (Key not found)" />
+            </rsp>"""
 
         import urllib
         minimock.mock('urllib.urlopen', returns=frob)
@@ -44,9 +44,9 @@ class OnlineProxyTests(unittest.TestCase):
 
         frob = Mock('frob')
         frob.read.mock_returns = """<?xml version="1.0" encoding="utf-8" ?>
-<rsp stat="fail">
-    <err code="96" msg="Invalid signature" />
-</rsp>"""
+            <rsp stat="fail">
+                <err code="96" msg="Invalid signature" />
+            </rsp>"""
 
         import urllib
         minimock.mock('urllib.urlopen', returns=frob)
