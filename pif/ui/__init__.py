@@ -76,7 +76,7 @@ def images_not_uploaded(indexes, filenames):
 
     for fn in filenames:
         try:
-            if file_index[fn] in flickr_index:
+            if flickr_index and file_index[fn] in flickr_index:
                 LOG.info("%s skipped. (--force to upload)" % fn)
             else:
                 yield fn
