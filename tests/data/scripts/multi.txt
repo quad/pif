@@ -1,0 +1,29 @@
+>>> len(index)
+3
+
+<rsp>
+    <photos page="1" pages="3">
+	<photo id="2717638353" />
+    </photos>
+</rsp>
+
+>>> '2717638353' in index
+True
+
+<rsp>
+    <photos page="2" pages="3" perpage="1" total="3">
+	<photo id="2740209939" />
+    </photos>
+</rsp>
+
+>>> '2740209939' in index
+True
+
+<rsp>
+    <photos page="3" pages="3" perpage="1" total="3">
+	<photo id="2658720703" />
+    </photos>
+</rsp>
+
+>>> '2658720703' in index
+True

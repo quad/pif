@@ -44,32 +44,67 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
     return proxy
 
 
-def recent_photos(proxy, min_date=1, progress_callback=None):
-    """An iterator of the recently updated photos."""
+class PhotoIndex(object, shelve.DbfilenameShelf):
+    """A cache for Flickr photostream metadata."""
 
-    page, pages = 1, 1
+    last_update = property(lambda self: max([0, ] + [int(p['lastupdate']) for p in self.itervalues()]))
 
-    while page <= pages:
-        resp = proxy.photos_recentlyUpdated(
-            page=page,
-            min_date=min_date,
-            extras='o_dims, original_format, last_update',
-        )
+    def __init__(self, proxy, filename):
+        shelve.DbfilenameShelf.__init__(self, filename)
 
-        photos = resp.find('photos')
+        self.proxy = proxy
 
-        if photos:
-            for photo in photos.findall('photo'):
-                yield photo.attrib
-        else:
-            break
+    def _iter_recent(self, progress_callback=None):
+        """Get the recently updated photos."""
 
-        pages = int(photos.get('pages'))
+        page, pages = 1, 1
 
-        if progress_callback:
-            progress_callback('update', (page, pages))
+        while page <= pages:
+            resp = self.proxy.photos_recentlyUpdated(
+                page=page,
+                min_date=self.last_update + 1,
+                extras=', '.join((
+                    'date_upload',
+                    'last_update',
+                    'o_dims',
+                    'original_format',
+                    'url_o',
+                ))
+            )
 
-        page = int(photos.get('page')) + 1
+            photos = resp.find('photos')
+
+            if photos:
+                for photo in photos.findall('photo'):
+                    yield photo.attrib
+            elif photos is None:
+                raise FlickrError('No photos in server response.')
+            else:
+                break
+
+            pages = int(photos.get('pages'))
+
+            if progress_callback:
+                progress_callback('update', (page, pages))
+
+            page = int(photos.get('page')) + 1
+
+    def refresh(self, progress_callback=None):
+        assert self.proxy, "Refresh with no proxy?"
+
+        # TODO: Detect deleted photos.
+        recent_photos = list(self._iter_recent(progress_callback))
+
+        # Only new or replaced photos count as updated.
+        def _(new_p, old_p):
+            return not old_p or new_p['dateupload'] != old_p['dateupload']
+        
+        updated_photos = [p['id'] for p in recent_photos if _(p, self.get(p['id']))]
+
+        # Update the index.
+        self.update(((p['id'], p) for p in recent_photos))
+
+        return updated_photos
 
 
 def get_photo_shorthash(photo):
@@ -168,5 +203,3 @@ class FlickrIndex(object, shelve.DbfilenameShelf):
             for p in photos:
                 for sh in shorthashes[p['id']]:
                     self.add(sh, p)
-
-    last_update = property(lambda self: max([0, ] + [lu for id, lu in self.values()]))

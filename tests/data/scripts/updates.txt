@@ -1,0 +1,44 @@
+<rsp>
+    <photos page="1" pages="1">
+	<photo id="2717638353" dateupload="1227123744" lastupdate="1227123744" />
+    </photos>
+</rsp>
+
+>>> '2717638353' in index
+True
+>>> index['2717638353']['dateupload']
+'1227123744'
+>>> index['2717638353']['lastupdate'] == index['2717638353']['dateupload']
+True
+
+<rsp>
+    <photos page="1" pages="1">
+	<photo id="2717638353" dateupload="1227123744" lastupdate="1235919152" />
+    </photos>
+</rsp>
+
+>>> index.refresh()
+[]
+
+>>> '2717638353' in index
+True
+>>> index['2717638353']['dateupload']
+'1227123744'
+>>> index['2717638353']['lastupdate']
+'1235919152'
+
+<rsp>
+    <photos page="1" pages="1">
+	<photo id="2717638353" dateupload="1242516746" lastupdate="1242516746" />
+    </photos>
+</rsp>
+
+>>> index.refresh()
+['2717638353']
+
+>>> '2717638353' in index
+True
+>>> index['2717638353']['dateupload']
+'1242516746'
+>>> index['2717638353']['lastupdate']
+'1242516746'

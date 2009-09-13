@@ -1,6 +1,8 @@
+import doctest
+import glob
 import os
+import os.path
 import tempfile
-import unittest
 import urllib2
 
 from xml.etree.ElementTree import XML
@@ -10,14 +12,15 @@ import flickrapi
 import minimock
 
 from minimock import Mock
-from nose.exc import SkipTest
-from nose.tools import raises
+from nose.tools import assert_raises, raises
 
 import pif
 
-from pif.flickr import FlickrError, FlickrIndex, get_photo_shorthash, get_photos_shorthashes, get_proxy, recent_photos
+from pif.flickr import FlickrError, FlickrIndex, PhotoIndex, get_proxy
 
-class OnlineProxyTests(unittest.TestCase):
+from tests import DATA
+
+class TestProxy:
     """Flickr proxy tests."""
 
     def tearDown(self):
@@ -105,60 +108,62 @@ class OnlineProxyTests(unittest.TestCase):
             else:
                 self.hit_cb = True
 
-        self.assertRaises(FlickrError, get_proxy, wait_callback=_cb)
+        assert_raises(FlickrError, get_proxy, wait_callback=_cb)
         assert self.hit_cb
 
-class IndexTests(unittest.TestCase):
-    """Flickr Index API tests."""
+
+class TestPhotoIndex:
+    """Flickr Photo Index API tests."""
 
     def setUp(self):
         self.proxy = Mock('FlickrAPI')
         self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
-        self.index = FlickrIndex(self.proxy, filename=self.index_fn)
+        self.index = PhotoIndex(self.proxy, filename=self.index_fn)
 
     def tearDown(self):
         minimock.restore()
         os.remove(self.index_fn)
 
+    def test_init_no_proxy(self):
+        """Initialize PhotoIndex with no proxy"""
+
+        i = PhotoIndex(None, self.index_fn)
+
+        assert i is not None
+
     def test_empty(self):
-        """Empty Flickr index"""
+        """Empty PhotoIndex"""
 
         assert not self.index.keys()
         assert self.index.last_update == 0
 
-    def test_refresh_fail_response(self):
-        """Failed refresh from Flickr"""
+    @raises(AssertionError)
+    def test_refresh_fail_no_proxy(self):
+        """PhotoIndex refresh fails without a proxy"""
 
-        photos_xml = XML("""
-                         <rsp stat="fail">
-                            <err code="1234" msg="Test Message" />
-                         </rsp>""")
-        self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
-
+        self.index.proxy = None
         self.index.refresh()
-        assert not self.index.keys()
-        assert self.index.last_update == 0
 
-    def test_refresh_empty_response(self):
-        """Empty response from Flickr"""
+    def test_refresh_no_cb(self):
+        """PhotoIndex refresh with no callback"""
 
         photos_xml = XML("""
                         <rsp>
-                            <photos />
+                            <photos page="1" pages="1">
+                                <photo id="2717638353" />
+                            </photos>
                         </rsp>""")
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
 
-        self.index.refresh()
-        assert not self.index.keys()
-        assert self.index.last_update == 0
+        assert '2717638353' in self.index.refresh()
 
-    def test_recent_photos_cb(self):
-        """Callback from recent photos"""
+    def test_refresh_cb(self):
+        """Callback from PhotoIndex refresh"""
 
         photos_xml = XML("""
                         <rsp>
-                            <photos page="1" pages="1" perpage="1" total="1">
-                                <photo farm="4" id="2717638353" isfamily="0" isfriend="0" ispublic="1" lastupdate="1227123744" o_height="1024" o_width="1544" originalformat="jpg" originalsecret="1111111111" owner="25046991@N00" secret="xxxxxxxxxx" server="3071" title="87680027.JPG" />
+                            <photos page="1" pages="1">
+                                <photo id="2717638353" />
                             </photos>
                         </rsp>""")
         self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
@@ -171,8 +176,68 @@ class IndexTests(unittest.TestCase):
             assert state == 'update', state
             assert meta == (1, 1), meta
 
-        assert list(recent_photos(self.proxy, progress_callback=_cb))
+        assert '2717638353' in self.index.refresh(progress_callback=_cb)
         assert self.hit_cb
+
+
+class TestPhotoIndexRefresh:
+    """Flickr Photo Index refresh tests."""
+
+    def setUp(self):
+        self.proxy = Mock('FlickrAPI')
+        self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
+        self.index = PhotoIndex(self.proxy, filename=self.index_fn)
+
+    def tearDown(self):
+        minimock.restore()
+        os.remove(self.index_fn)
+
+    @raises(FlickrError)
+    def test_refresh_fail_response(self):
+        """Failed refresh from Flickr"""
+
+        photos_xml = XML("""
+                         <rsp stat="fail">
+                            <err code="1234" msg="Test Message" />
+                         </rsp>""")
+        self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
+
+        assert not self.index.refresh()
+
+    def _run_scripted_test(self, test):
+        """Helper function to run a scripted doctest"""
+
+        script = (XML(p) for p in doctest.DocTestParser().parse(test._dt_test.docstring)
+                  if isinstance(p, str) and p.strip())
+
+        self.proxy.photos_recentlyUpdated.mock_returns = None
+        self.proxy.photos_recentlyUpdated.mock_returns_iter = script
+
+        self.index.refresh()
+
+        test._dt_test.globs['index'] = self.index
+        test._dt_test.globs['proxy'] = self.proxy
+        test.runTest()
+
+    def test_load_scripted(self):
+        """Generated test simulating Flickr metadata"""
+
+        for fn in glob.glob(os.path.join(DATA, 'scripts') + '/*.txt'):
+            dt = doctest.DocFileTest(fn, module_relative=False)
+            yield self._run_scripted_test, dt
+
+
+class IndexTests: #(unittest.TestCase):
+    """Flickr Index API tests."""
+
+    def setUp(self):
+        self.proxy = Mock('FlickrAPI')
+        self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
+        self.index = FlickrIndex(self.proxy, filename=self.index_fn)
+
+    def tearDown(self):
+        minimock.restore()
+        os.remove(self.index_fn)
 
     def test_add_ok(self):
         """Add a shorthash to an index."""
@@ -203,9 +268,7 @@ class IndexTests(unittest.TestCase):
 
         assert self.index['hash'] == (p2['id'], int(p2['lastupdate']))
 
-    # TODO: Test .ignore()
-
-class IndexRefreshTests(unittest.TestCase):
+class IndexRefreshTests: #(unittest.TestCase):
     """Flickr Index refresh tests."""
 
     XML_DATA = {
@@ -277,86 +340,6 @@ class IndexRefreshTests(unittest.TestCase):
 
         minimock.mock('pif.flickr.get_photo_shorthash', returns_func=_mock_sh)
     
-    def _check_photo_data(self, photos):
-        assert len(photos) == len(self.XML_DATA), "len(photos) == %u, len(self.XML_DATA) == %u" % (len(photos), len(self.XML_DATA))
-
-        # Check data against the dictionary.
-        for id, values in self.XML_DATA.iteritems():
-            shorthash = self.shorthashes[id]
-            assert id, values['lastupdate'] == photos[shorthash]
-
-        assert photos.last_update == max([v['lastupdate'] for v in self.XML_DATA.values()])
-
-    def test_refresh_single_page(self):
-        """Single page, multiple photos"""
-
-        photos_xml = XML("""
-                        <rsp>
-                            <photos page="1" pages="1" perpage="100" total="3">
-                                <photo farm="4" id="2717638353" isfamily="0" isfriend="0" ispublic="1" lastupdate="1227123744" o_height="1024" o_width="1544" originalformat="jpg" originalsecret="1111111111" owner="25046991@N00" secret="xxxxxxxxxx" server="3071" title="87680027.JPG" />
-                                <photo farm="4" id="2740209939" isfamily="0" isfriend="0" ispublic="1" lastupdate="1222928301" o_height="2736" o_width="3648" originalformat="jpg" originalsecret="3333333333" owner="25046991@N00" secret="zzzzzzzzzz" server="3108" title="IMG_0394.JPG" />
-                                <photo farm="3" id="2658720703" isfamily="0" isfriend="0" ispublic="1" lastupdate="1226520673" o_height="1500" o_width="1000" originalformat="jpg" originalsecret="yyyyyyyyyy" owner="25046991@N00" secret="2222222222" server="2126" title="16.jpg" />
-                            </photos>
-                        </rsp>""")
-        self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
-
-        self.index.refresh()
-        self._check_photo_data(self.index)
-
-    def test_refresh_multi_page(self):
-        """Multiple pages, single photos"""
-
-        photos_xml_1 = XML("""
-                        <rsp>
-                            <photos page="1" pages="3" perpage="1" total="3">
-                                <photo farm="4" id="2717638353" isfamily="0" isfriend="0" ispublic="1" lastupdate="1227123744" o_height="1024" o_width="1544" originalformat="jpg" originalsecret="1111111111" owner="25046991@N00" secret="xxxxxxxxxx" server="3071" title="87680027.JPG" />
-                            </photos>
-                        </rsp>""")
-
-        photos_xml_2 = XML("""
-                        <rsp>
-                            <photos page="2" pages="3" perpage="1" total="3">
-                                <photo farm="4" id="2740209939" isfamily="0" isfriend="0" ispublic="1" lastupdate="1222928301" o_height="2736" o_width="3648" originalformat="jpg" originalsecret="3333333333" owner="25046991@N00" secret="zzzzzzzzzz" server="3108" title="IMG_0394.JPG" />
-                            </photos>
-                        </rsp>""")
-
-        photos_xml_3 = XML("""
-                        <rsp>
-                            <photos page="3" pages="3" perpage="1" total="3">
-                                <photo farm="3" id="2658720703" isfamily="0" isfriend="0" ispublic="1" lastupdate="1226520673" o_height="1500" o_width="1000" originalformat="jpg" originalsecret="yyyyyyyyyy" owner="25046991@N00" secret="yyyyyyyyyy" server="2126" title="16.jpg" />
-                            </photos>
-                        </rsp>""")
-        self.proxy.photos_recentlyUpdated.mock_returns = None
-        self.proxy.photos_recentlyUpdated.mock_returns_iter = iter([photos_xml_1, photos_xml_2, photos_xml_3])
-
-        self.index.refresh()
-        self._check_photo_data(self.index)
-
-    def test_refresh_duplicate(self):
-        """Non-destructive updates from Flickr"""
-
-        photos_xml = XML("""
-                        <rsp>
-                            <photos page="1" pages="1" perpage="100" total="3">
-                                <photo farm="4" id="2717638353" isfamily="0" isfriend="0" ispublic="1" lastupdate="1227123744" o_height="1024" o_width="1544" originalformat="jpg" originalsecret="1111111111" owner="25046991@N00" secret="xxxxxxxxxx" server="3071" title="87680027.JPG" />
-                                <photo farm="4" id="2740209939" isfamily="0" isfriend="0" ispublic="1" lastupdate="1222928301" o_height="2736" o_width="3648" originalformat="jpg" originalsecret="3333333333" owner="25046991@N00" secret="zzzzzzzzzz" server="3108" title="IMG_0394.JPG" />
-                                <photo farm="3" id="2658720703" isfamily="0" isfriend="0" ispublic="1" lastupdate="1226520673" o_height="1500" o_width="1000" originalformat="jpg" originalsecret="yyyyyyyyyy" owner="25046991@N00" secret="2222222222" server="2126" title="16.jpg" />
-                            </photos>
-                        </rsp>""")
-        self.proxy.photos_recentlyUpdated.mock_returns = photos_xml
-
-        # Test the initial refresh.
-
-        self.index.refresh()
-        self._check_photo_data(self.index)
-
-        # Make a noticable change that isn't reflected in the user data.
-
-        self.index.ignore('abc123')
-        self.index.refresh()
-
-        assert self.index['abc123'] == self.index.STUB
-
     @raises(FlickrError)
     def test_refresh_failure(self):
         """Failed update from Flickr"""
@@ -375,7 +358,7 @@ class IndexRefreshTests(unittest.TestCase):
 
         self.index.refresh()
 
-class ShorthashTests(unittest.TestCase):
+class ShorthashTests: #(unittest.TestCase):
     """Shorthash retrieval tests."""
 
     def tearDown(self):

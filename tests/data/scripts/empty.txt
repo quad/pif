@@ -1,0 +1,8 @@
+<rsp>
+    <photos />
+</rsp>
+
+>>> not index.keys()
+True
+>>> index.last_update
+0

@@ -1,0 +1,31 @@
+<rsp>
+    <photos page="1" pages="1">
+	<photo id="2717638353" dateupload="1227123744" lastupdate="1227123744" o_height="1024" o_width="1544" originalformat="jpg" url_o="http://test_2717638353.jpg" />
+	<photo id="2740209939" dateupload="1222928301" lastupdate="1222928301" o_height="2736" o_width="3648" originalformat="jpg" url_o="http://test_2740209939.jpg" />
+	<photo id="2658720703" dateupload="1226520673" lastupdate="1226520673" o_height="1500" o_width="1000" originalformat="jpg" url_o="http://test_2658720703.jpg" />
+    </photos>
+</rsp>
+
+>>> photos = iter(sorted(index.itervalues(), key=lambda i: i['id']))
+
+>>> p = photos.next()
+>>> p['id']
+'2658720703'
+
+>>> p = photos.next()
+>>> p['id']
+'2717638353'
+>>> p['lastupdate'] == p['dateupload'] == '1227123744'
+True
+>>> p['o_height']
+'1024'
+>>> p['o_width']
+'1544'
+>>> p['originalformat']
+'jpg'
+>>> p['url_o']
+'http://test_2717638353.jpg'
+
+>>> p = photos.next()
+>>> p['id']
+'2740209939'
