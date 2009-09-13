@@ -85,7 +85,7 @@ class PhotoIndex(object, shelve.DbfilenameShelf):
             pages = int(photos.get('pages'))
 
             if progress_callback:
-                progress_callback('update', (page, pages))
+                progress_callback('photos', (page, pages))
 
             page = int(photos.get('page')) + 1
 
@@ -150,7 +150,7 @@ def get_photos_shorthashes(photos, progress_callback=None):
         processed_photos.append(pid)
 
         if progress_callback:
-            progress_callback('index', (len(processed_photos), len(photos)))
+            progress_callback('hashes', (len(processed_photos), len(photos)))
 
     def _ex(request, exc_info):
         (p, ) = request.args

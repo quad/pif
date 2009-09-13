@@ -173,7 +173,7 @@ class TestPhotoIndex:
         def _cb(state, meta):
             self.hit_cb = True
 
-            assert state == 'update', state
+            assert state == 'photos', state
             assert meta == (1, 1), meta
 
         assert '2717638353' in self.index.refresh(progress_callback=_cb)
