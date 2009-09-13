@@ -1,9 +1,9 @@
-import doctest
 import glob
 import os
 import os.path
 import tempfile
 
+from doctest import DocFileTest, DocTestParser
 from xml.etree.ElementTree import XML
 from xml.parsers.expat import ExpatError
 
@@ -16,6 +16,7 @@ from nose.tools import assert_raises, raises
 from pif.flickr import FlickrError, PhotoIndex, get_proxy
 
 from tests import DATA
+
 
 class TestProxy:
     """Flickr proxy tests."""
@@ -66,7 +67,8 @@ class TestProxy:
     def test_bad_xml(self):
         """Bad XML from proxy"""
 
-        minimock.mock('flickrapi.FlickrAPI.get_token_part_one', raises=ExpatError)
+        minimock.mock('flickrapi.FlickrAPI.get_token_part_one',
+                      raises=ExpatError)
 
         get_proxy()
 
@@ -75,7 +77,8 @@ class TestProxy:
         """Rejected proxy"""
 
         minimock.mock('flickrapi.FlickrAPI.get_token_part_one')
-        minimock.mock('flickrapi.FlickrAPI.get_token_part_two', raises=FlickrError)
+        minimock.mock('flickrapi.FlickrAPI.get_token_part_two',
+                      raises=FlickrError)
 
         get_proxy()
 
@@ -95,7 +98,8 @@ class TestProxy:
         def _bad_api(auth_response):
             raise FlickrError('Error: 108: Invalid frob')
 
-        minimock.mock('flickrapi.FlickrAPI.get_token_part_two', returns_func=_bad_api)
+        minimock.mock('flickrapi.FlickrAPI.get_token_part_two',
+                      returns_func=_bad_api)
 
         self.hit_cb = False
 
@@ -191,7 +195,8 @@ class TestPhotoIndex:
     def _run_scripted_test(self, test):
         """Helper function to run a scripted doctest"""
 
-        script = (XML(p) for p in doctest.DocTestParser().parse(test._dt_test.docstring)
+        script = (XML(p)
+                  for p in DocTestParser().parse(test._dt_test.docstring)
                   if isinstance(p, str) and p.strip())
 
         self.proxy.photos_recentlyUpdated.mock_returns = None
@@ -208,5 +213,5 @@ class TestPhotoIndex:
         """Generated test simulating Flickr metadata"""
 
         for fn in glob.glob(os.path.join(DATA, 'scripts') + '/*.txt'):
-            dt = doctest.DocFileTest(fn, module_relative=False)
+            dt = DocFileTest(fn, module_relative=False)
             yield self._run_scripted_test, dt
