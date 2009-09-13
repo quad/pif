@@ -1,6 +1,5 @@
 from __future__ import with_statement
 
-import hashlib
 import os.path
 import shutil
 import tempfile
@@ -16,7 +15,10 @@ import pif
 
 from pif.local import FileIndex
 
+
 class FileIndexNullTests(unittest.TestCase):
+    """Uninitialized FileIndex API Tests."""
+
     def setUp(self):
         self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
         self.index = FileIndex(self.index_fn)
@@ -25,9 +27,13 @@ class FileIndexNullTests(unittest.TestCase):
         os.remove(self.index_fn)
 
     def test_no_hashes(self):
+        """Empty FileIndex is empty"""
         assert not self.index.keys()
 
+
 class FileIndexSmallDirTests(unittest.TestCase):
+    """FileIndex tests with a small test fixture."""
+
     IMAGE_WIDTH, IMAGE_HEIGHT = 100, 50
 
     FILES = {
@@ -53,7 +59,6 @@ class FileIndexSmallDirTests(unittest.TestCase):
             # Draw something different so the hash is unique.
             d = PIL.ImageDraw.ImageDraw(i)
             d.text((0, 0), "Test %u" % num)
-            del d
 
             i.save(fn)
 
@@ -71,7 +76,7 @@ class FileIndexSmallDirTests(unittest.TestCase):
                 self.IMAGE_WIDTH,
                 self.IMAGE_HEIGHT,
             )
-            
+
             # Load the image into the cache.
             self.index[fn]
 
@@ -79,9 +84,13 @@ class FileIndexSmallDirTests(unittest.TestCase):
         shutil.rmtree(self.tempdir)
 
     def test_add(self):
+        """Images able to be added to FileIndex"""
+
         assert len(self.index) == len(self.FILES)
 
     def test_rescan(self):
+        """FileIndex detects changed images."""
+
         fn = self.index.keys().pop()
         old_shorthash = self.index[fn]
 
@@ -90,15 +99,16 @@ class FileIndexSmallDirTests(unittest.TestCase):
 
         d = PIL.ImageDraw.ImageDraw(i)
         d.text((0, 0), 'Something new!')
-        del d
 
-        time.sleep(1)
+        time.sleep(1)   # The timestamp must tick.
         i.save(fn)
 
         assert self.index[fn] != old_shorthash
 
     @raises(KeyError)
     def test_add_file_invalid(self):
+        """Invalid images ignored by FileIndex"""
+
         b_fn = os.path.join(self.tempdir, 'badfile.png')
 
         with file(b_fn, 'w') as bf:
@@ -107,15 +117,18 @@ class FileIndexSmallDirTests(unittest.TestCase):
         self.index[b_fn]
 
     def test_adds(self):
+        """FileIndex calculates shorthashes correctly"""
+
         images = (os.path.join(self.tempdir, fn) for fn in self.FILES)
 
         for fn in images:
             assert fn in self.index
 
             shorthash = self.index[fn]
-            assert self.index[fn] == self.shorthashes[fn], "Index %s\nTest %s" % (
-                repr(self.index[fn]),
-                repr(self.shorthashes[fn]),
-            )
+            assert self.index[fn] == self.shorthashes[fn], \
+                    "Index %s\nTest %s" % (
+                        repr(self.index[fn]),
+                        repr(self.shorthashes[fn]),
+                    )
 
     # TODO: Save and restore!
