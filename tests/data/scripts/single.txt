@@ -6,7 +6,7 @@
     </photos>
 </rsp>
 
->>> photos = iter(sorted(index.itervalues(), key=lambda i: i['id']))
+>>> photos = (index[i] for i in sorted(_))
 
 >>> p = photos.next()
 >>> p['id']

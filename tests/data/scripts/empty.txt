@@ -2,6 +2,8 @@
     <photos />
 </rsp>
 
+>>> _
+[]
 >>> not index.keys()
 True
 >>> index.last_update

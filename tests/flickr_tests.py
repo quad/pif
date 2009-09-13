@@ -200,8 +200,9 @@ class TestPhotoIndex:
         self.proxy.photos_recentlyUpdated.mock_returns = None
         self.proxy.photos_recentlyUpdated.mock_returns_iter = script
 
-        self.index.refresh()
+        _ = self.index.refresh()
 
+        test._dt_test.globs['_'] = _
         test._dt_test.globs['index'] = self.index
         test._dt_test.globs['proxy'] = self.proxy
         test.runTest()
