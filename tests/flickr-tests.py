@@ -179,19 +179,6 @@ class TestPhotoIndex:
         assert '2717638353' in self.index.refresh(progress_callback=_cb)
         assert self.hit_cb
 
-
-class TestPhotoIndexRefresh:
-    """Flickr Photo Index refresh tests."""
-
-    def setUp(self):
-        self.proxy = Mock('FlickrAPI')
-        self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
-        self.index = PhotoIndex(self.proxy, filename=self.index_fn)
-
-    def tearDown(self):
-        minimock.restore()
-        os.remove(self.index_fn)
-
     @raises(FlickrError)
     def test_refresh_fail_response(self):
         """Failed refresh from Flickr"""
