@@ -11,7 +11,8 @@ from nose.tools import raises
 
 import pif
 
-from pif.hash import FlickrError, HashIndex
+from pif.flickr import FlickrError
+from pif.hash import HashIndex
 
 from tests.mock import MockDict
 
@@ -44,7 +45,6 @@ class TestHashIndex:
     def make_mock_photo(self, photo_id):
         r = random.Random(photo_id)
 
-        photo_id = str(r.randint(0, sys.maxint))
         format = r.choice(('jpg', 'gif', 'png'))
         h, w, s = map(r.randint, (1, 1, 512), (5000, 5000, sys.maxint))
         url = "http://test_%s_o.%s" % (photo_id, format)
@@ -105,14 +105,14 @@ class TestHashIndex:
     def test_refresh_no_cb(self):
         """HashIndex refresh with no callback"""
 
-        pid = self.make_mock_photo('123')
+        sh = self.make_mock_photo('123')
 
-        assert self.index.refresh() == [pid]
+        assert self.index.refresh() == [sh]
 
     def test_refresh_cb(self):
         """Callback from HashIndex refresh"""
 
-        pid = self.make_mock_photo('123')
+        sh = self.make_mock_photo('123')
 
         self.hit_cb = False
 
@@ -122,7 +122,7 @@ class TestHashIndex:
             assert state == 'hashes', state
             assert meta == (1, 1), meta
 
-        assert self.index.refresh(progress_callback=_cb) == [pid]
+        assert self.index.refresh(progress_callback=_cb) == [sh]
 
         assert self.hit_cb
 
@@ -134,7 +134,7 @@ class TestHashIndex:
 
         self.index.refresh()
 
-    @raises(FlickrError)
+    @raises(IOError)
     def test_complete(self):
         """Wrong status from Flickr for photo download"""
 
@@ -143,5 +143,55 @@ class TestHashIndex:
 
         self.index.refresh()
 
-    def test_shorthashes_failure(self):
-        """Failure in shorthash batch retrieval"""
+    @raises(IOError)
+    def test_get_fail(self):
+        """Fail shorthash retrieval"""
+
+        self.make_mock_photo('123')
+
+        minimock.mock('urllib2.urlopen', raises=IOError)
+
+        self.index.refresh()
+
+    def test_get_fail_intermittent(self):
+        """Fail shorthash retrieval twice."""
+
+        sh = self.make_mock_photo('123')
+
+        fails = []
+        old_open = urllib2.urlopen
+        def _(request):
+            fails.append(True)
+
+            if len(fails) < 3:
+                raise IOError()
+            else:
+                return old_open(request)
+
+        minimock.mock('urllib2.urlopen', returns_func=_)
+
+        assert self.index.refresh() == [sh]
+
+    def test_multiple_photos(self):
+        """HashIndex refresh with a lot of unique photos"""
+
+        shs = [self.make_mock_photo(str(pid)) for pid in xrange(200)]
+
+        assert set(self.index.refresh()) == set(shs)
+
+        for pid, sh in enumerate(shs):
+            assert self.index[sh] == [str(pid)]
+
+    def test_duplicate_shorthashes(self):
+        """Duplicate shorthashes"""
+
+        self.make_mock_photo('123')
+        self.make_mock_photo('321')
+
+        sh = 'collision'
+
+        for k in self.tails:
+            self.tails[k] = sh
+
+        assert self.index.refresh() == [sh]
+        assert set(self.index[sh]) == set(['123', '321'])
