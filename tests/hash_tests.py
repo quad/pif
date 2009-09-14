@@ -1,4 +1,6 @@
 import os
+import random
+import sys
 import tempfile
 import urllib2
 
@@ -11,40 +13,47 @@ import pif
 
 from pif.hash import FlickrError, HashIndex
 
+from tests.mock import MockDict
+
 class TestHashIndex:
     """Flickr Shorthash Index API tests."""
 
     def setUp(self):
-        self.photos = Mock('PhotoIndex')
-        self.photos.refresh.mock_results = []
+        self.photos = MockDict('PhotoIndex')
+        self.photos.refresh.mock_returns = []
 
         self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
         self.index = HashIndex(self.photos, filename=self.index_fn)
 
-        self.urls_requested = []
-        self.urls_ok = []
-        minimock.mock('urllib2.urlopen') #, returns_func=self._mock_urlopen)
+        self.urls = {}
+        minimock.mock('urllib2.urlopen', returns_func=self._mock_urlopen)
 
-        minimock.mock('pif.make_shorthash') #, returns_func=self._mock_shorthash)
+        self.tails = {}
+        minimock.mock('pif.make_shorthash', returns_func=self._mock_shorthash)
 
     def _mock_urlopen(self, request):
-        self.urls_requested.append(request.url)
+        # TODO: Run assertions on argument validity.
+        return self.urls[request.get_full_url()]
 
-        assert request.url in self.urls_ok
 
     def _mock_shorthash(self, tail, original_format, size, width, height):
-        pass
+        # TODO: Run assertions on argument validity.
+        return self.tails[tail]
 
-    def _make_mock_photo(self, photo_id=None):
-        if not photo_id:
-            photo_id = str(random.randint(0, sys.maxint))
 
-        format = random.choice('jpg', 'gif', 'png')
-        h, w, s = map(random.randint, ((1, 5000), (1, 5000), (1, sys.maxint)))
+    def make_mock_photo(self, photo_id):
+        r = random.Random(photo_id)
+
+        photo_id = str(r.randint(0, sys.maxint))
+        format = r.choice(('jpg', 'gif', 'png'))
+        h, w, s = map(r.randint, (1, 1, 512), (5000, 5000, sys.maxint))
         url = "http://test_%s_o.%s" % (photo_id, format)
 
+        # The PhotoIndex refresh gives a photo ID.
         self.photos.refresh.mock_returns.append(photo_id)
-        self.photos.mock_attrs[photo_id] = {
+
+        # The fake photo ID points at the PhotoIndex record.
+        self.photos[photo_id] = {
             'id': photo_id,
             'originalformat': format,
             'o_height': str(h),
@@ -53,9 +62,22 @@ class TestHashIndex:
             'url_o': url,
         }
 
-        self.urls_ok.append(url)
+        # The record's URL points at the request.
+        tail = 'tail data' + photo_id
 
-        return 'fakeSH' + photo_id
+        request = Mock("Request(%s)" % url)
+        request.code = urllib2.httplib.PARTIAL_CONTENT
+        request.headers = {'content-range': "%u-%u/%u" % (s - 512, s, s)}
+        request.read.mock_returns = tail
+
+        self.urls[url] = request
+
+        # The tail data points at the fake shorthash.
+        shorthash = 'short hash' + photo_id
+
+        self.tails[tail] = shorthash
+
+        return shorthash
 
     def tearDown(self):
         minimock.restore()
@@ -79,20 +101,18 @@ class TestHashIndex:
         """An empty HashIndex refresh"""
 
         assert self.index.refresh() == []
-        assert not self.urls_requested
 
     def test_refresh_no_cb(self):
         """HashIndex refresh with no callback"""
 
-        pid = self._mock_photo()
+        pid = self.make_mock_photo('123')
 
         assert self.index.refresh() == [pid]
-        assert len(self.urls_requested) == 1
 
     def test_refresh_cb(self):
         """Callback from HashIndex refresh"""
 
-        pid = self._mock_photo()
+        pid = self.make_mock_photo('123')
 
         self.hit_cb = False
 
@@ -103,7 +123,6 @@ class TestHashIndex:
             assert meta == (1, 1), meta
 
         assert self.index.refresh(progress_callback=_cb) == [pid]
-        assert len(self.urls_requested) == 1
 
         assert self.hit_cb
 
@@ -111,7 +130,6 @@ class TestHashIndex:
     def test_refresh_failure(self):
         """Failed update from Flickr"""
 
-        del self.photos.refresh.mock_results
         self.photos.refresh.mock_raises = FlickrError
 
         self.index.refresh()
@@ -119,6 +137,11 @@ class TestHashIndex:
     @raises(FlickrError)
     def test_complete(self):
         """Wrong status from Flickr for photo download"""
+
+        self.make_mock_photo('123')
+        self.urls.values()[0].code = 404
+
+        self.index.refresh()
 
     def test_shorthashes_failure(self):
         """Failure in shorthash batch retrieval"""
