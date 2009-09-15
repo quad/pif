@@ -40,44 +40,68 @@ class HashIndex(object, shelve.DbfilenameShelf):
         )
 
 
-    def refresh(self, progress_callback=None):
-        assert self.photos is not None, 'Refresh with no metadata?'
+    def _get_shorthashes(self, photo_ids, progress_callback):
+        """Get shorthashes for multiple Flickr photos."""
 
-        photo_ids = self.photos.refresh()
+        shorthashes = {}
 
         # Threadpool the retrieval of the photo shorthashes, retrying the
         # process on aborted photos.
         pool = multiprocessing.Pool()
-        shorthashes = {}
         for retry in xrange(self.RETRIES):
-            def _track_cb(results):
-                for pid, sh in results:
-                    shorthashes[pid] = sh
-                    photo_ids.remove(pid)
+            def _results_cb(results):
+                shorthashes.update(results)
 
+                # TODO: Progress callback on a per-item basis.
                 if progress_callback:
                     progress_callback(
-                        'hashes', (len(shorthashes),
-                                   len(photo_ids) + len(shorthashes))
+                        'hashes', (len(shorthashes), len(photo_ids))
                     )
 
             map_results = pool.map_async(
                 lambda pid: (pid, self._get_shorthash(pid)),
-                set(photo_ids) - set(shorthashes),
-                callback=_track_cb,
+                photo_ids - set(shorthashes),
+                callback=_results_cb,
             )
             map_results.wait()
 
             if map_results.successful():
                 break
 
-        if photo_ids:
+        if photo_ids - set(shorthashes):
             raise IOError('Could not retrieve all shorthashes')
 
-        # Merge the shorthashes and photo IDs.
-        retval = set()
-        for pid, sh in shorthashes.iteritems():
-            self[sh] = self.get(sh, []) + [pid, ]
-            retval.add(sh)
+        return shorthashes
 
-        return list(retval)
+
+    def _merge_shorthashes(self, photo_shorthashes):
+        """Returns an update representing a merge of the passed shorthashes."""
+
+        # If a photo IDs is to be replaced, copy across the owning shorthash
+        # sans it.
+        results = {}
+        for sh, pids in self.iteritems():
+            for p in set(pids) & set(photo_shorthashes):
+                results.setdefault(sh, self[sh]).remove(p)
+
+        # Merge the new shorthashes.
+        for pid, sh in photo_shorthashes.iteritems():
+            results.setdefault(sh, self.get(sh, [])).append(pid)
+
+            # Don't make unnecessary updates.
+            if results[sh] == self.get(sh, []):
+                del results[sh]
+
+        return results
+
+
+    def refresh(self, progress_callback=None):
+        assert self.photos is not None, 'Refresh with no metadata?'
+
+        photo_ids = set(self.photos.refresh())
+        photo_shorthashes = self._get_shorthashes(photo_ids, progress_callback)
+        new_shorthashes = self._merge_shorthashes(photo_shorthashes)
+
+        self.update(new_shorthashes)
+
+        return new_shorthashes.keys()

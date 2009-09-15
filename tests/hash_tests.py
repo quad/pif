@@ -154,9 +154,9 @@ class TestHashIndex:
         self.index.refresh()
 
     def test_get_fail_intermittent(self):
-        """Fail shorthash retrieval twice."""
+        """Fail shorthash retrieval twice"""
 
-        sh = self.make_mock_photo('123')
+        shs = map(self.make_mock_photo, map(str, range(10)))
 
         fails = []
         old_open = urllib2.urlopen
@@ -170,7 +170,7 @@ class TestHashIndex:
 
         minimock.mock('urllib2.urlopen', returns_func=_)
 
-        assert self.index.refresh() == [sh]
+        assert set(self.index.refresh()) == set(shs)
 
     def test_multiple_photos(self):
         """HashIndex refresh with a lot of unique photos"""
@@ -194,4 +194,50 @@ class TestHashIndex:
             self.tails[k] = sh
 
         assert self.index.refresh() == [sh]
+        assert set(self.index[sh]) == set(['123', '321']), self.index[sh]
+
+    def test_incremental_collisions(self):
+        """Duplicate shorthashes in different refreshes"""
+
+        sh = self.make_mock_photo('123')
+
+        assert self.index.refresh() == [sh]
+
+        self.photos.refresh.mock_returns = []
+        self.tails = {}
+        self.urls = {}
+
+        self.make_mock_photo('321')
+        for k in self.tails:
+            self.tails[k] = sh
+
+        assert self.index.refresh() == [sh]
         assert set(self.index[sh]) == set(['123', '321'])
+
+    def test_incremental_duplicate_ids(self):
+        """Duplicate photo IDs across different refreshes"""
+
+        sh = self.make_mock_photo('123')
+
+        assert self.index.refresh() == [sh]
+        assert self.index[sh] == ['123']
+
+        assert self.index.refresh() == []
+        assert self.index[sh] == ['123']
+
+    def test_replaced(self):
+        """Replaced shorthash from Flickr"""
+
+        sh_old = self.make_mock_photo('123')
+
+        assert self.index.refresh() == [sh_old]
+        assert self.index[sh_old] == ['123']
+
+        sh_new = 'somethingnew'
+
+        for k in self.tails:
+            self.tails[k] = sh_new
+
+        assert set(self.index.refresh()) == set([sh_old, sh_new])
+        assert not self.index[sh_old]
+        assert self.index[sh_new] == ['123']
