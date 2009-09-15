@@ -89,7 +89,7 @@ class FileIndexSmallDirTests(unittest.TestCase):
         assert len(self.index) == len(self.FILES)
 
     def test_rescan(self):
-        """FileIndex detects changed images."""
+        """FileIndex detects changed images"""
 
         fn = self.index.keys().pop()
         old_shorthash = self.index[fn]
