@@ -4,6 +4,8 @@ import urllib2
 
 import pif
 
+from pif import TAILHASH_SIZE, make_shorthash
+
 
 class HashIndex(object, shelve.DbfilenameShelf):
     """Cache for photo shorthashes."""
@@ -23,7 +25,7 @@ class HashIndex(object, shelve.DbfilenameShelf):
 
         req = urllib2.Request(
             url=photo['url_o'],
-            headers={'Range': "bytes=-%u" % pif.TAILHASH_SIZE},
+            headers={'Range': "bytes=-%u" % TAILHASH_SIZE},
         )
 
         f = urllib2.urlopen(req)
@@ -31,7 +33,7 @@ class HashIndex(object, shelve.DbfilenameShelf):
         if f.code != urllib2.httplib.PARTIAL_CONTENT:
             raise IOError("Got status %s from Flickr" % f.code)
 
-        return pif.make_shorthash(
+        return make_shorthash(
             f.read(),
             photo['originalformat'],
             int(f.headers['content-range'].split('/')[-1]),

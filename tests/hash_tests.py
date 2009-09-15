@@ -9,7 +9,7 @@ import minimock
 from minimock import Mock
 from nose.tools import raises
 
-import pif
+import pif.hash
 
 from pif.flickr import FlickrError
 from pif.hash import HashIndex
@@ -30,7 +30,7 @@ class TestHashIndex:
         minimock.mock('urllib2.urlopen', returns_func=self._mock_urlopen)
 
         self.tails = {}
-        minimock.mock('pif.make_shorthash', returns_func=self._mock_shorthash)
+        minimock.mock('pif.hash.make_shorthash', returns_func=self._mock_shorthash)
 
     def _mock_urlopen(self, request):
         # TODO: Run assertions on argument validity.

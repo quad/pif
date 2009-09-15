@@ -4,7 +4,7 @@ import shelve
 
 import PIL.Image
 
-import pif
+from pif import TAILHASH_SIZE, make_shorthash
 
 LOG = logging.getLogger(__name__)
 
@@ -36,10 +36,10 @@ class FileIndex(object, shelve.DbfilenameShelf):
 
         # Gather the metadata to create the shorthash.
         with file(filename) as f:
-            f.seek(-pif.TAILHASH_SIZE, 2)
+            f.seek(-TAILHASH_SIZE, 2)
             tailhash = f.read()
 
-        shorthash = pif.make_shorthash(
+        shorthash = make_shorthash(
             tailhash,
             image.format,
             statinfo.st_size,
