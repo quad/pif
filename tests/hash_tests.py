@@ -122,9 +122,32 @@ class TestHashIndex:
             assert state == 'hashes', state
             assert meta == (1, 1), meta
 
-        assert self.index.refresh(progress_callback=_cb) == [sh]
+        assert self.index.refresh(_cb) == [sh]
 
         assert self.hit_cb
+
+    def test_deep_refresh_cb(self):
+        """FlickrIndex callback from HashIndex refresh"""
+
+        sh = self.make_mock_photo('123')
+
+        hit_cb = []
+
+        def _cb(state, meta):
+            hit_cb.append(state)
+
+        old_photo_refresh = self.photos.refresh
+
+        def _photo_refresh(cb):
+            hit_cb.append('photos')
+            assert cb == _cb
+
+            return old_photo_refresh(cb)
+
+        self.photos.refresh = _photo_refresh
+
+        assert self.index.refresh(_cb) == [sh]
+        assert hit_cb == ['photos', 'hashes']
 
     @raises(FlickrError)
     def test_refresh_failure(self):

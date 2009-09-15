@@ -98,7 +98,7 @@ class HashIndex(object, shelve.DbfilenameShelf):
     def refresh(self, progress_callback=None):
         assert self.photos is not None, 'Refresh with no metadata?'
 
-        photo_ids = set(self.photos.refresh())
+        photo_ids = set(self.photos.refresh(progress_callback))
         photo_shorthashes = self._get_shorthashes(photo_ids, progress_callback)
         new_shorthashes = self._merge_shorthashes(photo_shorthashes)
 
