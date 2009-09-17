@@ -7,11 +7,10 @@ import pif.local
 
 
 class Index:
-    def __init__(self, filenames, proxy_callback=None, progress_callback=None, config_dir=None):
+    def __init__(self, proxy_callback=None, progress_callback=None, config_dir=None):
         self.cb_progress = progress_callback
         self.cb_proxy = proxy_callback
         self.config_dir = config_dir if config_dir else os.path.expanduser('~/.pif')
-        self.source_filenames = filenames
 
         self._init_proxy()
         self._init_indexes()
@@ -31,28 +30,35 @@ class Index:
 
         self.files = pif.local.FileIndex(files_fn)
 
-        p = pif.flickr.PhotoIndex(self.proxy, photos_fn)
-        self.hashes = pif.hash.HashIndex(p, hashes_fn)
+        self.photos = pif.flickr.PhotoIndex(self.proxy, photos_fn)
+        self.hashes = pif.hash.HashIndex(self.photos, hashes_fn)
 
         self.hashes.refresh(progress_callback=self.cb_progress)
 
 
-    def ignore(self):
-        raise NotImplementedError()
+    def type(self, filename):
+        try:
+            if self.hashes.get(self.files[filename], []):
+                return 'old'
+        except KeyError:
+            return 'invalid'
+
+        return 'new'
 
 
-    def upload(self):
-        raise NotImplementedError()
+    def ignore(self, filename):
+        h = self.files[filename]
+
+        if None not in self.hashes.get(h, []):
+            self.hashes[h] += [None]
 
 
-    @property
-    def filenames(self):
-        for fn in self.source_filenames:
-            try:
-                if self.files[fn] in self.hashes \
-                   and len(self.hashes[self.files[fn]]):
-                    self.cb_progress('index-skip', (fn, ))
-                else:
-                    yield fn
-            except KeyError:    # Skip invalid files.
-                self.cb_progress('index-invalid', (fn, ))
+    def upload(self, filename, callback=None):
+        self.files[filename]    # Ensure the file is valid.
+        return self.proxy.upload(filename, callback=callback)
+
+
+    def close(self):
+        self.files.close()
+        self.photos.close()
+        self.hashes.close()
