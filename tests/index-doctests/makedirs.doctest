@@ -1,0 +1,27 @@
+Ensure the configuration directory is created.
+
+>>> import os
+>>> import os.path
+
+>>> import minimock
+>>> from minimock import Mock
+
+>>> import pif.flickr
+>>> import pif.hash
+>>> import pif.local
+>>> from pif.index import Index
+
+>>> minimock.mock('os.path.isdir', returns=False)
+>>> minimock.mock('os.makedirs')
+>>> minimock.mock('pif.flickr.get_proxy')
+>>> minimock.mock('pif.local.FileIndex')
+>>> minimock.mock('pif.flickr.PhotoIndex')
+>>> minimock.mock('pif.hash.HashIndex', returns=Mock('HashIndex'))
+
+>>> i = Index(config_dir='CONFIG')    #doctest: +ELLIPSIS
+Called pif.flickr.get_proxy(wait_callback=None)
+Called os.path.isdir('CONFIG')
+Called os.makedirs('CONFIG')
+...
+
+>>> minimock.restore()

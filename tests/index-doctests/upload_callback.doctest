@@ -1,0 +1,29 @@
+Upload of a valid file
+
+>>> import os.path
+
+>>> import minimock
+>>> from minimock import Mock
+
+>>> import pif.flickr
+>>> import pif.hash
+>>> import pif.local
+>>> from pif.index import Index
+
+>>> minimock.mock('os.path.isdir', returns=True)
+>>> proxy = Mock('FlickrProxy')
+>>> minimock.mock('pif.flickr.get_proxy', returns=proxy)
+
+>>> files = {'x.jpg': 'hash'}
+>>> minimock.mock('pif.local.FileIndex', returns=files)
+>>> minimock.mock('pif.flickr.PhotoIndex', returns=Mock('PhotoIndex'))
+>>> minimock.mock('pif.hash.HashIndex', returns=Mock('HashIndex'))
+
+>>> i = Index() #doctest: +ELLIPSIS
+Called pif.flickr.get_proxy(wait_callback=None)
+...
+
+>>> i.upload('x.jpg', Mock('upload_callback'))  #doctest: +ELLIPSIS
+Called FlickrProxy.upload('x.jpg', callback=<Mock 0x... upload_callback>)
+
+>>> minimock.restore()

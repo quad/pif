@@ -1,0 +1,21 @@
+Check Index callbacks.
+
+>>> import os.path
+
+>>> import minimock
+>>> from minimock import Mock
+
+>>> import pif.flickr
+>>> import pif.hash
+>>> from pif.index import Index
+
+>>> minimock.mock('os.path.isdir', returns=True)
+>>> minimock.mock('pif.flickr.get_proxy')
+>>> minimock.mock('pif.hash.HashIndex', returns=Mock('HashIndex'))
+
+>>> i = Index(Mock('proxy_callback'), Mock('progress_callback'))    #doctest: +ELLIPSIS
+Called pif.flickr.get_proxy(wait_callback=<Mock 0x... proxy_callback>)
+...
+Called HashIndex.refresh(progress_callback=<Mock 0x... progress_callback>)
+
+>>> minimock.restore()
