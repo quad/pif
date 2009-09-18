@@ -93,7 +93,7 @@ class TestProxy:
     def test_cb(self):
         """Callback from proxy"""
 
-        minimock.mock('flickrapi.FlickrAPI.get_token_part_one')
+        minimock.mock('flickrapi.FlickrAPI.get_token_part_one', returns=('token', 'frob'))
 
         def _bad_api(auth_response):
             raise FlickrError('Error: 108: Invalid frob')
@@ -103,7 +103,11 @@ class TestProxy:
 
         self.hit_cb = False
 
-        def _cb():
+        def _cb(proxy, perms, token, frob):
+            assert perms == 'write'
+            assert token == 'token'
+            assert frob == 'frob'
+
             if self.hit_cb:
                 return True
             else:

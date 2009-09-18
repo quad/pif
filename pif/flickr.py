@@ -18,11 +18,12 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
     """Get a web service proxy to Flickr."""
 
     # Setup the API proxy.
+    perms = 'write'
     proxy = flickrapi.FlickrAPI(key, secret, format='etree')
 
     try:
         # Authorize.
-        auth_response = proxy.get_token_part_one(perms='write')
+        auth_response = proxy.get_token_part_one(perms=perms)
     except ExpatError:    # FlickrAPI chokes on non-XML responses.
         raise FlickrError('Non-XML response from Flickr')
 
@@ -33,7 +34,7 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
         except FlickrError as e:
             # Wait for frob confirmation.
             frob_ok = filter(lambda x: x.startswith('Error: 108'), e)
-            if frob_ok and wait_callback and not wait_callback():
+            if frob_ok and wait_callback and not wait_callback(proxy, perms, *auth_response):
                 continue
             raise
 
