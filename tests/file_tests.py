@@ -23,9 +23,6 @@ class FileIndexNullTests(unittest.TestCase):
         self.index_fn = tempfile.mktemp()  # OK to use as we're just testing...
         self.index = FileIndex(self.index_fn)
 
-    def tearDown(self):
-        os.remove(self.index_fn)
-
     def test_no_hashes(self):
         """Empty FileIndex is empty"""
         assert not self.index.keys()

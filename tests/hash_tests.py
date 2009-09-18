@@ -81,7 +81,6 @@ class TestHashIndex:
 
     def tearDown(self):
         minimock.restore()
-        os.remove(self.index_fn)
     
     def test_init_no_photo_index(self):
         """Initialize HashIndex without metadata"""

@@ -1,5 +1,4 @@
 import logging
-import shelve
 
 from xml.parsers.expat import ExpatError
 
@@ -7,6 +6,8 @@ import flickrapi
 import pkg_resources
 
 from flickrapi.exceptions import FlickrError
+
+import pif.dictdb
 
 LOG = logging.getLogger(__name__)
 
@@ -39,13 +40,13 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
     return proxy
 
 
-class PhotoIndex(object, shelve.DbfilenameShelf):
+class PhotoIndex(pif.dictdb.DictDB):
     """A cache for Flickr photostream metadata."""
 
     last_update = property(lambda self: max([0, ] + [int(p['lastupdate']) for p in self.itervalues()]))
 
     def __init__(self, proxy, filename):
-        shelve.DbfilenameShelf.__init__(self, filename)
+        pif.dictdb.DictDB.__init__(self, filename)
 
         self.proxy = proxy
 

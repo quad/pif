@@ -1,23 +1,24 @@
 import logging
 import os
-import shelve
 
 import PIL.Image
+
+import pif.dictdb
 
 from pif import TAILHASH_SIZE, make_shorthash
 
 LOG = logging.getLogger(__name__)
 
 
-class FileIndex(object, shelve.DbfilenameShelf):
+class FileIndex(pif.dictdb.DictDB):
     """Cache for local file shorthashes."""
 
     def __init__(self, filename):
-        shelve.DbfilenameShelf.__init__(self, filename)
+        pif.dictdb.DictDB.__init__(self, filename)
 
     def __getitem__(self, filename):
         if filename in self:
-            last_modified, shorthash = shelve.DbfilenameShelf.__getitem__(self, filename)
+            last_modified, shorthash = pif.dictdb.DictDB.__getitem__(self, filename)
         else:
             last_modified, shorthash = None, None
 

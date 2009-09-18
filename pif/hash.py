@@ -1,21 +1,21 @@
-import shelve
 import urllib2
 
 import threadpool
 
 import pif
+import pif.dictdb
 
 from pif import TAILHASH_SIZE, make_shorthash
 
 
-class HashIndex(object, shelve.DbfilenameShelf):
+class HashIndex(pif.dictdb.DictDB):
     """Cache for photo shorthashes."""
 
     RETRIES = 3
     THREADS = 4
 
     def __init__(self, photos, filename):
-        shelve.DbfilenameShelf.__init__(self, filename)
+        pif.dictdb.DictDB.__init__(self, filename)
 
         self.photos = photos
 
@@ -83,22 +83,30 @@ class HashIndex(object, shelve.DbfilenameShelf):
     def _merge_shorthashes(self, photo_shorthashes):
         """Returns an update representing a merge of the passed shorthashes."""
 
-        # If a photo IDs is to be replaced, copy across the owning shorthash
-        # sans it.
-        results = {}
+        # Invert the hash index to check for photo ID collisions.
+        inverted = {}
         for sh, pids in self.iteritems():
-            for p in set(pids) & set(photo_shorthashes):
-                results.setdefault(sh, self[sh]).remove(p)
+            for p in pids:
+                assert p not in inverted
+                inverted[p] = sh
 
         # Merge the new shorthashes.
+        merged_shorthashes = set()
         for pid, sh in photo_shorthashes.iteritems():
-            results.setdefault(sh, self.get(sh, [])).append(pid)
+            # If a photo ID is replaced, remove the original owning shorthash.
+            if pid in inverted:
+                sh_old = inverted[pid]
 
-            # Don't make unnecessary updates.
-            if results[sh] == self.get(sh, []):
-                del results[sh]
+                if sh == sh_old:
+                    continue
+                else:
+                    self[sh_old].remove(pid)
+                    merged_shorthashes.add(sh_old)
 
-        return results
+            self.setdefault(sh, []).append(pid)
+            merged_shorthashes.add(sh)
+
+        return merged_shorthashes
 
 
     def refresh(self, progress_callback=None):
@@ -108,6 +116,4 @@ class HashIndex(object, shelve.DbfilenameShelf):
         photo_shorthashes = self._get_shorthashes(photo_ids, progress_callback)
         new_shorthashes = self._merge_shorthashes(photo_shorthashes)
 
-        self.update(new_shorthashes)
-
-        return new_shorthashes.keys()
+        return list(new_shorthashes)

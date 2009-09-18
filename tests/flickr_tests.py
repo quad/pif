@@ -123,7 +123,6 @@ class TestPhotoIndex:
 
     def tearDown(self):
         minimock.restore()
-        os.remove(self.index_fn)
 
     def test_init_no_proxy(self):
         """Initialize PhotoIndex with no proxy"""
