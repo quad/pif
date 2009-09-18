@@ -61,10 +61,17 @@ class HashIndex(pif.dictdb.DictDB):
                         'hashes', (len(shorthashes), len(photo_ids))
                     )
 
+            def _exception_cb(request, exc_info):
+                t, v, tb = exc_info
+
+                if not issubclass(t, IOError):
+                    raise t, v, tb
+
             reqs = threadpool.makeRequests(
                 self._get_shorthash,
                 photo_ids - set(shorthashes),
                 _results_cb,
+                _exception_cb
             )
             [pool.putRequest(r) for r in reqs]
             pool.wait()

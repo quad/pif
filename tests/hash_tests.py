@@ -175,6 +175,16 @@ class TestHashIndex:
 
         self.index.refresh()
 
+    @raises(SystemError)
+    def test_get_fail_bad(self):
+        """Failed shorthash retrieval passes fatal exceptions"""
+
+        self.make_mock_photo('123')
+
+        minimock.mock('urllib2.urlopen', raises=SystemError)
+
+        self.index.refresh()
+
     def test_get_fail_intermittent(self):
         """Fail shorthash retrieval twice"""
 
