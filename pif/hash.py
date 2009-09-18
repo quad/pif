@@ -1,6 +1,7 @@
-import multiprocessing.dummy as multiprocessing  # <3 threads
 import shelve
 import urllib2
+
+import threadpool
 
 import pif
 
@@ -11,6 +12,7 @@ class HashIndex(object, shelve.DbfilenameShelf):
     """Cache for photo shorthashes."""
 
     RETRIES = 3
+    THREADS = 4
 
     def __init__(self, photos, filename):
         shelve.DbfilenameShelf.__init__(self, filename)
@@ -49,26 +51,28 @@ class HashIndex(object, shelve.DbfilenameShelf):
 
         # Threadpool the retrieval of the photo shorthashes, retrying the
         # process on aborted photos.
-        pool = multiprocessing.Pool()
+        pool = threadpool.ThreadPool(self.THREADS)
         for retry in xrange(self.RETRIES):
-            def _results_cb(results):
-                shorthashes.update(results)
+            def _results_cb(request, result):
+                shorthashes[request.args[0]] = result
 
-                # TODO: Progress callback on a per-item basis.
                 if progress_callback:
                     progress_callback(
                         'hashes', (len(shorthashes), len(photo_ids))
                     )
 
-            map_results = pool.map_async(
-                lambda pid: (pid, self._get_shorthash(pid)),
+            reqs = threadpool.makeRequests(
+                self._get_shorthash,
                 photo_ids - set(shorthashes),
-                callback=_results_cb,
+                _results_cb,
             )
-            map_results.wait()
+            [pool.putRequest(r) for r in reqs]
+            pool.wait()
 
-            if map_results.successful():
+            if len(shorthashes) == len(photo_ids):
                 break
+
+        pool.dismissWorkers(len(pool.workers))
 
         if photo_ids - set(shorthashes):
             raise IOError('Could not retrieve all shorthashes')
