@@ -1,0 +1,19 @@
+>>> import logging
+>>> import os
+
+>>> import minimock
+
+>>> minimock.mock('logging.root.setLevel')
+>>> minimock.mock('os.environ', mock_obj={})
+
+>>> import pif.ui
+>>> reload(pif.ui)	#doctest: +ELLIPSIS
+<module 'pif.ui' from ...>
+
+>>> os.environ['DEBUG'] = '1'
+
+>>> reload(pif.ui)	#doctest: +ELLIPSIS
+Called logging.root.setLevel(10)
+<module 'pif.ui' from ...>
+
+>>> minimock.restore()
