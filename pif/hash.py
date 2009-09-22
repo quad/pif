@@ -51,7 +51,7 @@ class HashIndex(pif.dictdb.DictDB):
 
         # Threadpool the retrieval of the photo shorthashes, retrying the
         # process on aborted photos.
-        pool = threadpool.ThreadPool(self.THREADS)
+        pool = threadpool.ThreadPool(self.THREADS, poll_timeout=1)
         for retry in xrange(self.RETRIES):
             def _results_cb(request, result):
                 shorthashes[request.args[0]] = result
@@ -80,6 +80,7 @@ class HashIndex(pif.dictdb.DictDB):
                 break
 
         pool.dismissWorkers(len(pool.workers))
+        pool.joinAllDismissedWorkers()
 
         if photo_ids - set(shorthashes):
             raise IOError('Could not retrieve all shorthashes')
