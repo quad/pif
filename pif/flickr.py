@@ -95,7 +95,7 @@ class PhotoIndex(pif.dictdb.DictDB):
         # Only new or replaced photos count as updated.
         def _(new_p, old_p):
             return not old_p or new_p['dateupload'] != old_p['dateupload']
-        
+
         updated_photos = [p['id'] for p in recent_photos if _(p, self.get(p['id']))]
 
         # Update the index.

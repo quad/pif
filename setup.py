@@ -8,7 +8,7 @@ setup(
 
     packages=[
         'pif',
-        'pif.ui'
+        'pif.ui',
     ],
     package_data={
         'pif': ['flickr-api.key'],

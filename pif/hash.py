@@ -59,8 +59,7 @@ class HashIndex(pif.dictdb.DictDB):
 
                     if progress_callback:
                         progress_callback(
-                            'hashes', (len(shorthashes), len(photo_ids))
-                        )
+                            'hashes', (len(shorthashes), len(photo_ids)))
 
                 def _exception_cb(request, exc_info):
                     t, v, tb = exc_info
@@ -72,8 +71,7 @@ class HashIndex(pif.dictdb.DictDB):
                     self._get_shorthash,
                     photo_ids - set(shorthashes),
                     _results_cb,
-                    _exception_cb
-                )
+                    _exception_cb)
                 [pool.putRequest(r) for r in reqs]
                 pool.wait()
 

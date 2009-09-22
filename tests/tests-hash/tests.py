@@ -16,6 +16,7 @@ from pif.hash import HashIndex
 
 from tests.mock import MockDict
 
+
 class TestHashIndex:
     """Flickr Shorthash Index API tests."""
 
@@ -36,11 +37,9 @@ class TestHashIndex:
         # TODO: Run assertions on argument validity.
         return self.urls[request.get_full_url()]
 
-
     def _mock_shorthash(self, tail, original_format, size, width, height):
         # TODO: Run assertions on argument validity.
         return self.tails[tail]
-
 
     def make_mock_photo(self, photo_id):
         r = random.Random(photo_id)
@@ -81,7 +80,7 @@ class TestHashIndex:
 
     def tearDown(self):
         minimock.restore()
-    
+
     def test_init_no_photo_index(self):
         """Initialize HashIndex without metadata"""
 
@@ -192,6 +191,7 @@ class TestHashIndex:
 
         fails = []
         old_open = urllib2.urlopen
+
         def _(request):
             fails.append(True)
 

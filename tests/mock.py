@@ -3,6 +3,7 @@ from minimock import Mock, DefaultTracker
 # TOOD: Implement a default dictionary tracker.
 
 class MockDict(Mock):
+
     def __init__(self, name, returns=None, returns_iter=None,
                  returns_func=None, raises=None, show_attrs=False,
                  tracker=DefaultTracker, items=None, **kw):
@@ -26,8 +27,7 @@ class MockDict(Mock):
             self.mock_items[key] = Mock(
                 new_name,
                 show_attrs=self.mock_show_attrs,
-                tracker=self.mock_tracker
-            )
+                tracker=self.mock_tracker)
 
         return self.mock_items[key]
 

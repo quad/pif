@@ -32,10 +32,8 @@ class TestIndexFiles:
 
         self.index = Index()
 
-
     def tearDown(self):
         minimock.restore()
-
 
     def test_basic(self):
         """Index supplies new files"""
@@ -44,7 +42,6 @@ class TestIndexFiles:
 
         assert self.index.type('x.jpg') == 'new'
 
-
     def test_skipped(self):
         """Index skips already uploaded files"""
 
@@ -52,7 +49,6 @@ class TestIndexFiles:
         self.hashes['hash'] = ['123']
 
         assert self.index.type('x.jpg') == 'old'
-
 
     def test_invalid(self):
         """Index skips invalid files"""
@@ -78,10 +74,8 @@ class TestIndexChanges:
 
         self.index = Index()
 
-
     def tearDown(self):
         minimock.restore()
-
 
     def test_ignore(self):
         """Index ignores a valid file"""
@@ -95,14 +89,12 @@ class TestIndexChanges:
 
         assert self.index.type('x.jpg') == 'old'
 
-
     @raises(KeyError)
     def test_ignore_invalid(self):
         """Index barfs when ignoring an invalid file"""
 
         assert self.index.type('x.jpg') == 'invalid'
         self.index.ignore('x.jpg')
-
 
     def test_ignore_repeat(self):
         """Index ignoring is idempotent"""
@@ -115,7 +107,6 @@ class TestIndexChanges:
 
         assert self.index.type('x.jpg') == 'old'
         assert self.hashes['hash'] == [None]
-
 
     @raises(KeyError)
     def test_upload_no_file(self):

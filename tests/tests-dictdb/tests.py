@@ -9,6 +9,7 @@ from nose.tools import raises
 
 from pif.dictdb import DictDB
 
+
 class TestInits:
     """Tests for the initialization of the DictDB."""
 
