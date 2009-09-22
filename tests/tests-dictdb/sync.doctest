@@ -1,0 +1,43 @@
+>>> import json
+>>> import os
+>>> import shutil
+>>> import tempfile
+
+>>> import minimock
+>>> from minimock import Mock
+
+>>> minimock.mock('json.dump')
+>>> minimock.mock('os.access', returns=False)
+>>> minimock.mock('shutil.move')
+>>> minimock.mock('tempfile.NamedTemporaryFile', returns=Mock('NamedTemporaryFile'))
+
+>>> from pif.dictdb import DictDB
+
+>>> db = DictDB('/testdir/database')
+Called os.access('/testdir/database', 4)
+
+>>> db.sync()	#doctest: +ELLIPSIS
+Called tempfile.NamedTemporaryFile(
+    delete=False,
+    dir='/testdir',
+    suffix='database')
+...
+Called json.dump(<Mock 0x... NamedTemporaryFile>, {})
+...
+Called shutil.move(
+    <Mock 0x... NamedTemporaryFile.name>,
+    '/testdir/database')
+
+>>> json.dump.mock_raises = IOError
+
+>>> tt = minimock.TraceTracker()
+>>> minimock.mock('os.remove', tracker=tt)
+
+>>> db.sync()	#doctest: +ELLIPSIS
+Traceback (most recent call last):
+   ...
+IOError
+>>> print tt.dump(),	#doctest: +ELLIPSIS
+Called os.remove(<Mock 0x... NamedTemporaryFile.name>)
+
+>>> minimock.restore()

@@ -58,7 +58,7 @@ class Index:
         return self.proxy.upload(filename, callback=callback)
 
 
-    def close(self):
-        self.files.close()
-        self.photos.close()
-        self.hashes.close()
+    def sync(self):
+        self.files.sync()
+        self.photos.sync()
+        self.hashes.sync()

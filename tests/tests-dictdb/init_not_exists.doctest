@@ -1,0 +1,15 @@
+DictDB inits without a previously existing file
+
+>>> import os
+
+>>> import minimock
+
+>>> minimock.mock('os.access')
+
+>>> from pif.dictdb import DictDB
+
+>>> DictDB('x')
+Called os.access('x', 4)
+{}
+
+>>> minimock.restore()

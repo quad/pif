@@ -1,0 +1,8 @@
+DictDB chokes on invalid filename parameter
+
+>>> from pif.dictdb import DictDB
+
+>>> DictDB(None)	#doctest: +ELLIPSIS
+Traceback (most recent call last):
+  ...
+TypeError: coercing to Unicode: need string or buffer, NoneType found
