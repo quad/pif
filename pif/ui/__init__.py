@@ -40,8 +40,6 @@ class Shell(object):
         """
         self.option_parser.add_option('-n', '--dry-run', action='store_true',
                                       help='perform a trial run with no uploads made')
-        self.options_parser.add_option('-f', '--force', action='store_true',
-                                       help='force file(s) to be uploaded')
         self.options_parser.add_option('-x', '--no-refresh',
                                        action='store_true', help='do not
                                        refresh the local index')
