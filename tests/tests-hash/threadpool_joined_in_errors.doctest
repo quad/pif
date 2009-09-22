@@ -1,0 +1,44 @@
+Ensure the threadpool is cleaned up in both normal and exception execution
+
+>>> import tempfile
+>>> import threadpool
+
+>>> import minimock
+>>> from minimock import Mock
+
+>>> tp = Mock('ThreadPool', workers=[])
+>>> minimock.mock('threadpool.ThreadPool', returns=tp)
+
+>>> from pif.hash import HashIndex
+
+>>> p = Mock('PhotoIndex')
+>>> p.refresh.mock_returns = []
+
+>>> f = tempfile.NamedTemporaryFile()
+>>> print >>f, '{}'
+>>> f.flush()
+
+>>> h = HashIndex(p, f.name)
+>>> h.refresh()	#doctest: +ELLIPSIS
+Called PhotoIndex.refresh(...)
+Called threadpool.ThreadPool(..., poll_timeout=1)
+Called ThreadPool.wait()
+Called ThreadPool.dismissWorkers(0)
+Called ThreadPool.joinAllDismissedWorkers()
+[]
+
+>>> tt = minimock.TraceTracker()
+>>> tp = Mock('ThreadPool', workers=[], tracker=tt)
+>>> minimock.mock('threadpool.ThreadPool', returns=tp)
+>>> minimock.mock('threadpool.makeRequests', raises=Exception)
+
+>>> h.refresh()	#doctest: +ELLIPSIS
+Traceback (most recent call last):
+  ...
+Exception
+
+>>> print tt.dump(),	#doctest: +ELLIPSIS
+Called ThreadPool.dismissWorkers(...)
+Called ThreadPool.joinAllDismissedWorkers()
+
+>>> minimock.restore()
