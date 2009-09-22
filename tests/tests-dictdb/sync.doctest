@@ -22,7 +22,7 @@ Called tempfile.NamedTemporaryFile(
     dir='/testdir',
     suffix='database')
 ...
-Called json.dump(<Mock 0x... NamedTemporaryFile>, {})
+Called json.dump({}, <Mock 0x... NamedTemporaryFile>)
 ...
 Called shutil.move(
     <Mock 0x... NamedTemporaryFile.name>,

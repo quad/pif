@@ -1,9 +1,11 @@
 import json
+import logging
 import os
 import os.path
 import shutil
 import tempfile
 
+LOG = logging.getLogger(__name__)
 
 class DictDB(dict):
     def __init__(self, filename):
@@ -22,7 +24,7 @@ class DictDB(dict):
 
         try:
             with f:
-                json.dump(f, self)
+                json.dump(self, f)
         except:
             os.remove(f.name)
             raise
