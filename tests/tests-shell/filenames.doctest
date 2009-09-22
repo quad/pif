@@ -1,0 +1,60 @@
+	>>> import minimock
+
+	>>> import logging
+	>>> minimock.mock('logging.root')
+
+	>>> from pif.ui import Shell
+
+Give no filenames if given no filenames
+
+	>>> s = Shell([])
+	Called logging.root.setLevel(30)
+	>>> list(s.filenames)
+	[]
+
+Given a filename, ignores if it if it isn't a file or directory.
+
+	>>> import os.path
+	>>> minimock.mock('os.path.isfile')
+	>>> minimock.mock('os.path.isdir')
+
+	>>> s = Shell(['x'])
+	Called logging.root.setLevel(30)
+	>>> list(s.filenames)
+	Called os.path.isfile('x')
+	Called os.path.isdir('x')
+	[]
+
+Return a specified filename, whether its "valid" or not.
+
+	>>> minimock.mock('os.path.isfile', returns=True)
+
+	>>> s = Shell(['/x', '/y.jpg'])
+	Called logging.root.setLevel(30)
+	>>> list(s.filenames)
+	Called os.path.isfile('/x')
+	Called os.path.isfile('/y.jpg')
+	['/x', '/y.jpg']
+
+Descend into a valid directory, picking up matching files.
+
+	>>> minimock.mock('os.path.isfile')
+	>>> minimock.mock('os.path.isdir', returns=True)
+
+	>>> import os
+	>>> minimock.mock('os.walk', returns=[
+	...	('/dir', ('jpgs', 'gifs', 'pngs'), ('invalid')),
+	...	('/dir/jpgs', (), ('x.jpg', 'x.JPG', 'x.jpeg', 'x.JPEG')),
+	...	('/dir/gifs', (), ('x.gif', 'x.GIF')),
+	...	('/dir/pngs', (), ('x.png', 'x.PNG')),
+        ...	])
+
+	>>> s = Shell(['dir'])
+	Called logging.root.setLevel(30)
+	>>> list(s.filenames)
+	Called os.path.isfile('dir')
+	Called os.path.isdir('dir')
+	Called os.walk('dir')
+	['/dir/jpgs/x.JPEG', '/dir/jpgs/x.JPG', '/dir/jpgs/x.jpeg', '/dir/jpgs/x.jpg', '/dir/gifs/x.GIF', '/dir/gifs/x.gif', '/dir/pngs/x.PNG', '/dir/pngs/x.png']
+
+>>> minimock.restore()
