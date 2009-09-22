@@ -22,7 +22,7 @@ def make_shorthash(tail, original_format, size, width, height):
     """Calculate a shorthash."""
 
     # Normalize the data.
-    tail = hashlib.sha512(tail).digest()
+    tail = hashlib.sha512(tail).hexdigest()
     original_format = FORMATS[original_format.lower()]
     size, height, width = map(int, (size, height, width))
 
