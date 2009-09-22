@@ -7,18 +7,18 @@ Logging verbosity options
 >>> import minimock
 >>> from minimock import Mock
 
->>> import pif.ui
-
 >>> minimock.mock('logging.root.setLevel')
 >>> minimock.mock('os.environ', mock_obj={})
 >>> minimock.mock('sys.argv', mock_obj=['pif'])
+
+>>> import pif.ui
 
 >>> pif.ui.Shell()	#doctest: +ELLIPSIS
 ...
 Called logging.root.setLevel(30)
 <pif.ui.Shell object at 0x...>
 
->>> pif.ui.Shell(['pif', '-v'])	#doctest: +ELLIPSIS
+>>> pif.ui.Shell(['-v'])	#doctest: +ELLIPSIS
 ...
 Called logging.root.setLevel(20)
 <pif.ui.Shell object at 0x...>
@@ -29,7 +29,7 @@ With debugging, logging should be untouched.
 >>> pif.ui.Shell()	#doctest: +ELLIPSIS
 <pif.ui.Shell object at 0x...>
 
->>> pif.ui.Shell(['pif', '-v'])	#doctest: +ELLIPSIS
+>>> pif.ui.Shell(['-v'])	#doctest: +ELLIPSIS
 <pif.ui.Shell object at 0x...>
 
 >>> minimock.restore()

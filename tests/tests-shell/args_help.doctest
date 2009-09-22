@@ -6,12 +6,12 @@
 >>> import minimock
 >>> from minimock import Mock
 
->>> import pif.ui
-
 >>> minimock.mock('os.environ', mock_obj={})
 >>> minimock.mock('sys.exit')
 
->>> pif.ui.Shell(['pif', '--help'])	#doctest: +ELLIPSIS
+>>> import pif.ui
+
+>>> pif.ui.Shell(['--help'])	#doctest: +ELLIPSIS
 Usage: nosetests [options] <filename ...>
 <BLANKLINE>
 Options:
