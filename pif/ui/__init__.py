@@ -11,6 +11,8 @@ import re
 import pif.index
 
 
+LOG = logging.getLogger(__name__)
+
 if 'DEBUG' in os.environ:
     logging.root.setLevel(logging.DEBUG)
 
