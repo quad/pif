@@ -24,6 +24,8 @@ class TestIndexFiles:
         self.files = {}
         minimock.mock('pif.local.FileIndex', returns=self.files)
 
+        minimock.mock('pif.flickr.PhotoIndex', returns=Mock('PhotoIndex'))
+
         self.hashes = MockDict('HashIndex')
         minimock.mock('pif.hash.HashIndex', returns=self.hashes)
         self.hashes.get.mock_returns_func = self.hashes.mock_items.get
@@ -67,6 +69,8 @@ class TestIndexChanges:
 
         self.files = {}
         minimock.mock('pif.local.FileIndex', returns=self.files)
+
+        minimock.mock('pif.flickr.PhotoIndex', returns=Mock('PhotoIndex'))
 
         self.hashes = MockDict('HashIndex')
         minimock.mock('pif.hash.HashIndex', returns=self.hashes)

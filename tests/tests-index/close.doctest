@@ -21,9 +21,9 @@ Closing the index commits
 Called pif.flickr.get_proxy(wait_callback=None)
 ...
 
->>> i.close()
-Called FileIndex.close()
-Called PhotoIndex.close()
-Called HashIndex.close()
+>>> i.sync()
+Called FileIndex.sync()
+Called PhotoIndex.sync()
+Called HashIndex.sync()
 
 >>> minimock.restore()
