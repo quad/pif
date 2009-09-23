@@ -8,7 +8,7 @@ Basic initialization of the UI shell
 >>> import minimock
 >>> from minimock import Mock
 
->>> import pif.ui
+>>> from pif.ui.shell import Shell
 
 >>> minimock.mock('logging.root.setLevel')
 >>> parser = Mock('OptionParser')
@@ -17,7 +17,7 @@ Basic initialization of the UI shell
 >>> minimock.mock('os.environ', mock_obj={})
 >>> minimock.mock('sys.argv', mock_obj=['pif'])
 
->>> pif.ui.Shell()	#doctest: +ELLIPSIS
+>>> Shell()	#doctest: +ELLIPSIS
 Called optparse.OptionParser('%prog [options] <filename ...>')
 Called OptionParser.add_option(
     '-v',
@@ -26,6 +26,6 @@ Called OptionParser.add_option(
     help='increase verbosity')
 Called OptionParser.parse_args(args=None)
 Called logging.root.setLevel(30)
-<pif.ui.Shell object at 0x...>
+<pif.ui.shell.Shell object at 0x...>
 
 >>> minimock.restore()

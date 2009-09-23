@@ -9,15 +9,15 @@
 >>> minimock.mock('os.environ', mock_obj={})
 >>> minimock.mock('sys.exit')
 
->>> import pif.ui
+>>> from pif.ui.shell import Shell
 
->>> pif.ui.Shell(['--help'])	#doctest: +ELLIPSIS
+>>> Shell(['--help'])	#doctest: +ELLIPSIS
 Usage: nosetests [options] <filename ...>
 <BLANKLINE>
 Options:
   -h, --help     show this help message and exit
   -v, --verbose  increase verbosity
 Called sys.exit(0)
-<pif.ui.Shell object at 0x...>
+<pif.ui.shell.Shell object at 0x...>
 
 >>> minimock.restore()

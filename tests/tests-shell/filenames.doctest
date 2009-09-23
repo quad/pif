@@ -3,7 +3,7 @@
 	>>> import logging
 	>>> minimock.mock('logging.root')
 
-	>>> from pif.ui import Shell
+	>>> from pif.ui.shell import Shell
 
 Give no filenames if given no filenames
 
