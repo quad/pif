@@ -50,7 +50,7 @@ class Index:
         h = self.files[filename]
 
         if None not in self.hashes.get(h, []):
-            self.hashes[h] += [None]
+            self.hashes.setdefault(h, []).append(None)
 
 
     def upload(self, filename, callback=None):

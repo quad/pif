@@ -11,8 +11,10 @@ import pif.local
 
 from pif.index import Index
 
-from tests.mock import MockDict
 
+class MockIndex(dict):
+    def __init__(self, name):
+        self.refresh = Mock(name + '.refresh()')
 
 class TestIndexFiles:
     """Tests for indexing of files."""
@@ -26,9 +28,8 @@ class TestIndexFiles:
 
         minimock.mock('pif.flickr.PhotoIndex', returns=Mock('PhotoIndex'))
 
-        self.hashes = MockDict('HashIndex')
+        self.hashes = MockIndex('HashIndex')
         minimock.mock('pif.hash.HashIndex', returns=self.hashes)
-        self.hashes.get.mock_returns_func = self.hashes.mock_items.get
 
         self.index = Index()
 
@@ -68,9 +69,8 @@ class TestIndexChanges:
 
         minimock.mock('pif.flickr.PhotoIndex', returns=Mock('PhotoIndex'))
 
-        self.hashes = MockDict('HashIndex')
+        self.hashes = MockIndex('HashIndex')
         minimock.mock('pif.hash.HashIndex', returns=self.hashes)
-        self.hashes.get.mock_returns_func = self.hashes.mock_items.get
 
         self.index = Index()
 
@@ -81,7 +81,6 @@ class TestIndexChanges:
         """Index ignores a valid file"""
 
         self.files['x.jpg'] = 'hash'
-        self.hashes['hash'] = []
 
         assert self.index.type('x.jpg') == 'new'
 
