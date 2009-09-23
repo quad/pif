@@ -3,7 +3,6 @@ import sys
 import threading
 
 from pif.flickr import FlickrError
-from pif.ui import common_run
 
 LOG = logging.getLogger(__name__)
 
@@ -68,14 +67,14 @@ class FlickrUpdater(WorkerThread):
 
         self.setDaemon(True)
 
-    def do(self, opts):
+    def do(self, shell):
         if self.cbs.proxy:
             self.cbs.proxy()
 
-        indexes, filenames = common_run(opts, self.cbs.proxy, self.cbs.progress)
+        index = shell.make_index(self.cbs.proxy, self.cbs.progress)
 
         if self.cbs.done:
-            self.cbs.done(indexes, filenames)
+            self.cbs.done(index)
 
 
 class Loader(WorkerThread):
