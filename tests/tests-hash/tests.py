@@ -273,3 +273,16 @@ class TestHashIndex:
         assert set(self.index.refresh()) == set([sh_old, sh_new])
         assert not self.index[sh_old]
         assert self.index[sh_new] == ['123']
+
+    def test_ignored_merge(self):
+        """Merge shouldn't choke on collisions from ignored hashes"""
+
+        sh_a = self.make_mock_photo('123')
+        sh_b = self.make_mock_photo('321')
+
+        assert set(self.index.refresh()) == set([sh_a, sh_b])
+
+        self.index[sh_a] += [None]
+        self.index[sh_b] += [None]
+
+        assert self.index.refresh() == []

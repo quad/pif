@@ -93,7 +93,7 @@ class HashIndex(pif.dictdb.DictDB):
         # Invert the hash index to check for photo ID collisions.
         inverted = {}
         for sh, pids in self.iteritems():
-            for p in pids:
+            for p in filter(None, pids):
                 assert p not in inverted
                 inverted[p] = sh
 
