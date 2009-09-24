@@ -1,11 +1,9 @@
 import json
-import logging
 import os
 import os.path
 import shutil
 import tempfile
 
-LOG = logging.getLogger(__name__)
 
 class DictDB(dict):
     def __init__(self, filename):

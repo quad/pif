@@ -1,5 +1,3 @@
-import logging
-
 from xml.parsers.expat import ExpatError
 
 import flickrapi
@@ -8,8 +6,6 @@ import pkg_resources
 from flickrapi.exceptions import FlickrError
 
 import pif.dictdb
-
-LOG = logging.getLogger(__name__)
 
 API_KEY, API_SECRET = pkg_resources.resource_string(__name__, 'flickr-api.key').split()
 

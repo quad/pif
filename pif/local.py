@@ -1,4 +1,3 @@
-import logging
 import os
 
 import PIL.Image
@@ -6,8 +5,6 @@ import PIL.Image
 import pif.dictdb
 
 from pif import TAILHASH_SIZE, make_shorthash
-
-LOG = logging.getLogger(__name__)
 
 
 class FileIndex(pif.dictdb.DictDB):
