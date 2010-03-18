@@ -1,0 +1,31 @@
+Does the PIF_NO_REFRESH environment variable skip the refresh?
+
+>>> import os
+>>> import os.path
+
+>>> import minimock
+>>> from minimock import Mock
+
+>>> import pif.flickr
+>>> import pif.hash
+>>> import pif.local
+>>> from pif.index import Index
+
+>>> minimock.mock('os.path.isdir', returns=True)
+>>> minimock.mock('pif.local.FileIndex')
+>>> minimock.mock('pif.flickr.PhotoIndex', returns=Mock('PhotoIndex'))
+>>> minimock.mock('pif.hash.HashIndex', returns=Mock('HashIndex'))
+
+>>> old_environ = os.environ
+>>> os.environ = {'PIF_NO_REFRESH': '1'}
+
+>>> i = Index()    #doctest: +ELLIPSIS
+Called os.path.isdir('...')
+Called pif.local.FileIndex('...')
+Called pif.flickr.PhotoIndex(None, '...')
+Called pif.hash.HashIndex(
+    <Mock 0x... PhotoIndex>,
+    '...')
+
+>>> os.environ = old_environ
+>>> minimock.restore()

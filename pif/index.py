@@ -17,7 +17,10 @@ class Index:
 
 
     def _init_proxy(self):
-        self.proxy = pif.flickr.get_proxy(wait_callback=self.cb_proxy)
+        if 'PIF_NO_REFRESH' in os.environ:
+            self.proxy = None
+        else:
+            self.proxy = pif.flickr.get_proxy(wait_callback=self.cb_proxy)
 
 
     def _init_indexes(self):
@@ -33,7 +36,8 @@ class Index:
         self.photos = pif.flickr.PhotoIndex(self.proxy, photos_fn)
         self.hashes = pif.hash.HashIndex(self.photos, hashes_fn)
 
-        self.hashes.refresh(progress_callback=self.cb_progress)
+        if 'PIF_NO_REFRESH' not in os.environ:
+            self.hashes.refresh(progress_callback=self.cb_progress)
 
 
     def type(self, filename):
