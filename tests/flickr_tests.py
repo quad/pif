@@ -7,13 +7,12 @@ from doctest import DocFileTest, DocTestParser
 from xml.etree.ElementTree import XML
 from xml.parsers.expat import ExpatError
 
-import flickrapi
 import minimock
 
 from minimock import Mock
 from nose.tools import assert_raises, raises
 
-from pif.flickr import FlickrError, PhotoIndex, get_proxy
+from pif.flickr import flickrapi, FlickrError, PhotoIndex, get_proxy
 
 from tests import DATA
 

@@ -1,9 +1,10 @@
 from xml.parsers.expat import ExpatError
 
-import flickrapi
+import eventlet
 import pkg_resources
 
-from flickrapi.exceptions import FlickrError
+flickrapi = eventlet.import_patched('flickrapi')
+FlickrError = flickrapi.exceptions.FlickrError
 
 import pif.dictdb
 
