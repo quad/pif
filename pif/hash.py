@@ -1,11 +1,15 @@
-import urllib2
+import logging
 
-import threadpool
+import eventlet
+
+from eventlet.green import urllib2
 
 import pif
 import pif.dictdb
 
 from pif import TAILHASH_SIZE, make_shorthash
+
+LOG = logging.getLogger(__name__)
 
 
 class HashIndex(pif.dictdb.DictDB):
@@ -34,51 +38,36 @@ class HashIndex(pif.dictdb.DictDB):
         if f.code != urllib2.httplib.PARTIAL_CONTENT:
             raise IOError("Got status %s from Flickr" % f.code)
 
-        return make_shorthash(
+        return photo_id, make_shorthash(
             f.read(),
             photo['originalformat'],
             int(f.headers['content-range'].split('/')[-1]),
             int(photo['o_width']),
-            int(photo['o_height']),
-        )
+            int(photo['o_height']))
 
     def _get_shorthashes(self, photo_ids, progress_callback):
         """Get shorthashes for multiple Flickr photos."""
 
         shorthashes = {}
 
-        # Threadpool the retrieval of the photo shorthashes, retrying the
-        # process on aborted photos.
-        pool = threadpool.ThreadPool(self.THREADS, poll_timeout=1)
-        try:
-            for retry in xrange(self.RETRIES):
+        # Pool the retrieval of the photo shorthashes, retrying the process on
+        # aborted photos.
 
-                def _results_cb(request, result):
-                    shorthashes[request.args[0]] = result
+        pool = eventlet.GreenPool()
+        for retry in xrange(self.RETRIES):
+            try:
+                for pid, result in pool.imap(self._get_shorthash,
+                                             photo_ids - set(shorthashes)):
+                    shorthashes[pid] = result
 
                     if progress_callback:
                         progress_callback(
                             'hashes', (len(shorthashes), len(photo_ids)))
+            except IOError:
+                LOG.debug('Retry #%u for shorthash retrieval', retry)
 
-                def _exception_cb(request, exc_info):
-                    t, v, tb = exc_info
-
-                    if not issubclass(t, IOError):
-                        raise t, v, tb
-
-                reqs = threadpool.makeRequests(
-                    self._get_shorthash,
-                    photo_ids - set(shorthashes),
-                    _results_cb,
-                    _exception_cb)
-                [pool.putRequest(r) for r in reqs]
-                pool.wait()
-
-                if len(shorthashes) == len(photo_ids):
-                    break
-        finally:
-            pool.dismissWorkers(len(pool.workers))
-            pool.joinAllDismissedWorkers()
+            if len(shorthashes) == len(photo_ids):
+                break
 
         if photo_ids - set(shorthashes):
             raise IOError('Could not retrieve all shorthashes')

@@ -2,7 +2,8 @@ import os
 import random
 import sys
 import tempfile
-import urllib2
+
+from eventlet.green import urllib2
 
 import minimock
 

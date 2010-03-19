@@ -18,7 +18,6 @@ setup(
     install_requires=[
         'eventlet',
         'flickrapi',
-        'threadpool',
     ],
 
     entry_points={
