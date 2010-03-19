@@ -19,7 +19,6 @@ class HashIndex(pif.dictdb.DictDB):
 
         self.photos = photos
 
-
     def _get_shorthash(self, photo_id):
         """Get a shorthash for a Flickr photo."""
 
@@ -43,7 +42,6 @@ class HashIndex(pif.dictdb.DictDB):
             int(photo['o_height']),
         )
 
-
     def _get_shorthashes(self, photo_ids, progress_callback):
         """Get shorthashes for multiple Flickr photos."""
 
@@ -54,6 +52,7 @@ class HashIndex(pif.dictdb.DictDB):
         pool = threadpool.ThreadPool(self.THREADS, poll_timeout=1)
         try:
             for retry in xrange(self.RETRIES):
+
                 def _results_cb(request, result):
                     shorthashes[request.args[0]] = result
 
@@ -86,7 +85,6 @@ class HashIndex(pif.dictdb.DictDB):
 
         return shorthashes
 
-
     def _merge_shorthashes(self, photo_shorthashes):
         """Returns an update representing a merge of the passed shorthashes."""
 
@@ -114,7 +112,6 @@ class HashIndex(pif.dictdb.DictDB):
             merged_shorthashes.add(sh)
 
         return merged_shorthashes
-
 
     def refresh(self, progress_callback=None):
         assert self.photos is not None, 'Refresh with no metadata?'

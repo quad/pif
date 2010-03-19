@@ -9,6 +9,7 @@ import pif.index
 
 LOG = logging.getLogger(__name__)
 
+
 class Shell(object):
     EXTENSIONS = (
         'gif',
@@ -19,24 +20,22 @@ class Shell(object):
 
     def __init__(self, args=None):
         self._init_option_parser()
-        self.options, self.remain_args = self.option_parser.parse_args(args=args)
+        self.options, self.remain_args = self.option_parser.parse_args(
+            args=args)
 
         self._init_logging()
 
     def _init_option_parser(self):
-        self.option_parser = optparse.OptionParser('%prog [options] <filename ...>')
+        self.option_parser = optparse.OptionParser(
+            '%prog [options] <filename ...>')
 
         self.option_parser.add_option('-v', '--verbose', action='store_true',
                                        help='increase verbosity')
 
         """
-        self.option_parser.add_option('-n', '--dry-run', action='store_true',
-                                      help='perform a trial run with no uploads made')
-        self.options_parser.add_option('-x', '--no-refresh',
-                                       action='store_true', help='do not
-                                       refresh the local index')
+        add_option('-n', '--dry-run', action='store_true',
+                   help='perform a trial run with no uploads made')
         """
-
 
     def _init_logging(self):
         if 'DEBUG' in os.environ:
@@ -46,10 +45,8 @@ class Shell(object):
         else:
             logging.root.setLevel(logging.WARN)
 
-
     def make_index(self, *args, **kwargs):
         return pif.index.Index(*args, **kwargs)
-
 
     @property
     def filenames(self):

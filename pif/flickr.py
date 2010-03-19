@@ -8,7 +8,8 @@ FlickrError = flickrapi.exceptions.FlickrError
 
 import pif.dictdb
 
-API_KEY, API_SECRET = pkg_resources.resource_string(__name__, 'flickr-api.key').split()
+API_KEY, API_SECRET = pkg_resources.resource_string(
+    __name__, 'flickr-api.key').split()
 
 
 def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
@@ -31,7 +32,8 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
         except FlickrError as e:
             # Wait for frob confirmation.
             frob_ok = filter(lambda x: x.startswith('Error: 108'), e)
-            if frob_ok and wait_callback and not wait_callback(proxy, perms, *auth_response):
+            if frob_ok and wait_callback \
+               and not wait_callback(proxy, perms, *auth_response):
                 continue
             raise
 
@@ -41,7 +43,9 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
 class PhotoIndex(pif.dictdb.DictDB):
     """A cache for Flickr photostream metadata."""
 
-    last_update = property(lambda self: max([0, ] + [int(p['lastupdate']) for p in self.itervalues()]))
+    last_update = property(
+        lambda self: max([0, ] + [int(p['lastupdate'])
+                                  for p in self.itervalues()]))
 
     def __init__(self, proxy, filename):
         pif.dictdb.DictDB.__init__(self, filename)
@@ -93,7 +97,9 @@ class PhotoIndex(pif.dictdb.DictDB):
         def _(new_p, old_p):
             return not old_p or new_p['dateupload'] != old_p['dateupload']
 
-        updated_photos = [p['id'] for p in recent_photos if _(p, self.get(p['id']))]
+        updated_photos = [p['id']
+                          for p in recent_photos
+                          if _(p, self.get(p['id']))]
 
         # Update the index.
         self.update(((p['id'], p) for p in recent_photos))

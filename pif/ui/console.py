@@ -15,12 +15,11 @@ class ConsoleShell(Shell):
         self.option_parser.add_option('-m', '--mark', action='store_true',
                                       help='mark files as uploaded')
 
-
     def proxy_callback(self, proxy, perms, token, frob):
         LOG.info('Waiting for authorization from Flickr...')
-        LOG.info("(If nothing happens, open %s in your browser.)" % proxy.auth_url(perms, frob))
+        LOG.info('(If nothing happens, open %s in your browser.)',
+                 proxy.auth_url(perms, frob))
         time.sleep(5)
-
 
     def progress_callback(self, state, meta):
         msgs = {
@@ -31,10 +30,10 @@ class ConsoleShell(Shell):
         a, b = meta
         LOG.info("%s (%u / %u)" % (msgs[state], a, b))
 
-
     def run(self):
         try:
-            index = self.make_index(self.proxy_callback, self.progress_callback)
+            index = self.make_index(self.proxy_callback,
+                                    self.progress_callback)
         except IOError:
             return LOG.fatal("Couldn't connect to Flickr.")
 
@@ -45,22 +44,27 @@ class ConsoleShell(Shell):
 
                     LOG.info("%s marked as already uploaded" % fn)
                 else:
+
                     def _(progress, done):
                         if done:
                             print
                             LOG.info("Uploaded %s" % fn)
                         else:
-                            print "\rUploading %s... (%s%%)" % (fn, int(progress)),
+                            print "\rUploading %s... (%s%%)" % (
+                                fn, int(progress)),
 
                     index.upload(fn, callback=_)
             elif t == 'old':
-                LOG.info("%s already uploaded, skipping (use --force to upload)" % fn)
+                LOG.info(
+                    "%s already uploaded, skipping (use --force to upload)",
+                    fn)
             elif t == 'invalid':
                 LOG.warn("%s is invalid, skipping" % fn)
             else:
                 LOG.debug("%s is type '%s'?" % (fn, t))
 
         index.sync()
+
 
 def run():
     s = ConsoleShell()

@@ -13,7 +13,6 @@ class DictDB(dict):
             with open(filename) as f:
                 self.update(json.load(f))
 
-
     def sync(self):
         f = tempfile.NamedTemporaryFile(
             suffix=os.path.basename(self.filename),

@@ -7,21 +7,26 @@ import pif.local
 
 
 class Index:
-    def __init__(self, proxy_callback=None, progress_callback=None, config_dir=None):
+    def __init__(self,
+                 proxy_callback=None,
+                 progress_callback=None,
+                 config_dir=None):
         self.cb_progress = progress_callback
         self.cb_proxy = proxy_callback
-        self.config_dir = config_dir if config_dir else os.path.expanduser('~/.pif')
+
+        if config_dir:
+            self.config_dir = config_dir
+        else:
+            self.config_dir = os.path.expanduser('~/.pif')
 
         self._init_proxy()
         self._init_indexes()
-
 
     def _init_proxy(self):
         if 'PIF_NO_REFRESH' in os.environ:
             self.proxy = None
         else:
             self.proxy = pif.flickr.get_proxy(wait_callback=self.cb_proxy)
-
 
     def _init_indexes(self):
         files_fn = os.path.join(self.config_dir, 'files.db')
@@ -39,7 +44,6 @@ class Index:
         if 'PIF_NO_REFRESH' not in os.environ:
             self.hashes.refresh(progress_callback=self.cb_progress)
 
-
     def type(self, filename):
         try:
             if self.hashes.get(self.files[filename], []):
@@ -49,18 +53,15 @@ class Index:
 
         return 'new'
 
-
     def ignore(self, filename):
         h = self.files[filename]
 
         if None not in self.hashes.get(h, []):
             self.hashes.setdefault(h, []).append(None)
 
-
     def upload(self, filename, callback=None):
         self.files[filename]    # Ensure the file is valid.
         return self.proxy.upload(filename, callback=callback)
-
 
     def sync(self):
         self.files.sync()

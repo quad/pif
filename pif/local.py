@@ -15,7 +15,8 @@ class FileIndex(pif.dictdb.DictDB):
 
     def __getitem__(self, filename):
         if filename in self:
-            last_modified, shorthash = pif.dictdb.DictDB.__getitem__(self, filename)
+            last_modified, shorthash = pif.dictdb.DictDB.__getitem__(
+                self, filename)
         else:
             last_modified, shorthash = None, None
 
