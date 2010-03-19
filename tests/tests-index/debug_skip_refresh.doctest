@@ -12,6 +12,7 @@ Does the PIF_NO_REFRESH environment variable skip the refresh?
 >>> from pif.index import Index
 
 >>> minimock.mock('os.path.isdir', returns=True)
+>>> minimock.mock('pif.flickr.get_proxy', returns=Mock('FlickrProxy'))
 >>> minimock.mock('pif.local.FileIndex')
 >>> minimock.mock('pif.flickr.PhotoIndex', returns=Mock('PhotoIndex'))
 >>> minimock.mock('pif.hash.HashIndex', returns=Mock('HashIndex'))
