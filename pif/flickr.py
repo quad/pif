@@ -1,6 +1,7 @@
 from xml.parsers.expat import ExpatError
 
 import eventlet
+import eventlet.tpool
 import pkg_resources
 
 flickrapi = eventlet.import_patched('flickrapi')
@@ -17,7 +18,7 @@ def get_proxy(key=API_KEY, secret=API_SECRET, wait_callback=None):
 
     # Setup the API proxy.
     perms = 'write'
-    proxy = flickrapi.FlickrAPI(key, secret, format='etree')
+    proxy = eventlet.tpool.Proxy(flickrapi.FlickrAPI(key, secret, format='etree'))
 
     try:
         # Authorize.

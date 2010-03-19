@@ -87,7 +87,7 @@ class TestProxy:
         minimock.mock('flickrapi.FlickrAPI.get_token_part_one')
         minimock.mock('flickrapi.FlickrAPI.get_token_part_two', returns=True)
 
-        assert isinstance(get_proxy(), flickrapi.FlickrAPI)
+        assert get_proxy()
 
     def test_cb(self):
         """Callback from proxy"""
