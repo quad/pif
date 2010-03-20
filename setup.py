@@ -32,6 +32,7 @@ setup(
     tests_require=[
         'MiniMock',
         'nose',
+        'pyxdg',
     ],
 
     test_suite='nose.collector',
