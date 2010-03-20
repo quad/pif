@@ -1,0 +1,42 @@
+Ensure we use XDG configuration directories, if available.
+
+	>>> import os.path
+	>>> import xdg.BaseDirectory
+
+	>>> import minimock
+
+	>>> minimock.mock('xdg.BaseDirectory.xdg_data_home', mock_obj='CONFIG')
+
+	>>> import pif.index
+	>>> reload(pif.index)	#doctest: +ELLIPSIS
+	<module 'pif.index' from '...'>
+
+	>>> pif.index.CONFIG_DIR
+	'CONFIG/pif'
+
+	>>> minimock.restore()
+
+Ensure we fallback to using ~/.pif if XDG doesn't exist.
+
+	>>> import sys
+
+	>>> class _():
+	...	def __init__(self, modules):
+	...		self.modules = modules
+	...
+	... 	def find_module(self, fullname, path=None):
+	...		if fullname in self.modules:
+	...			raise ImportError('Debug import failure for %s' % fullname)
+
+	>>> fail_loader = _(['xdg.BaseDirectory'])
+	>>> sys.meta_path.append(fail_loader)
+
+	>>> del sys.modules['xdg.BaseDirectory']
+
+	>>> reload(pif.index)	#doctest: +ELLIPSIS
+	<module 'pif.index' from '...'>
+
+	>>> pif.index.CONFIG_DIR == os.path.expanduser('~/.pif')
+	True
+
+	>>> sys.meta_path.remove(fail_loader)

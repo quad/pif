@@ -5,19 +5,22 @@ import pif.flickr
 import pif.hash
 import pif.local
 
+try:
+    import xdg.BaseDirectory
+
+    CONFIG_DIR = os.path.join(xdg.BaseDirectory.xdg_data_home, 'pif')
+except ImportError:
+    CONFIG_DIR = os.path.expanduser('~/.pif')
+
 
 class Index:
     def __init__(self,
                  proxy_callback=None,
                  progress_callback=None,
-                 config_dir=None):
+                 config_dir=CONFIG_DIR):
         self.cb_progress = progress_callback
         self.cb_proxy = proxy_callback
-
-        if config_dir:
-            self.config_dir = config_dir
-        else:
-            self.config_dir = os.path.expanduser('~/.pif')
+        self.config_dir = config_dir
 
         self._init_proxy()
         self._init_indexes()
