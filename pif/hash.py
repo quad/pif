@@ -1,8 +1,8 @@
 import logging
+import urllib2
 
 import eventlet
-
-from eventlet.green import urllib2
+import eventlet.tpool
 
 import pif
 import pif.dictdb
@@ -33,7 +33,7 @@ class HashIndex(pif.dictdb.DictDB):
             headers={'Range': "bytes=-%u" % TAILHASH_SIZE},
         )
 
-        f = urllib2.urlopen(req)
+        f = eventlet.tpool.execute(urllib2.urlopen, req)
 
         if f.code != urllib2.httplib.PARTIAL_CONTENT:
             raise IOError("Got status %s from Flickr" % f.code)
@@ -53,7 +53,7 @@ class HashIndex(pif.dictdb.DictDB):
         # Pool the retrieval of the photo shorthashes, retrying the process on
         # aborted photos.
 
-        pool = eventlet.GreenPool()
+        pool = eventlet.GreenPool(size=self.THREADS)
         for retry in xrange(self.RETRIES):
             try:
                 for pid, result in pool.imap(self._get_shorthash,
