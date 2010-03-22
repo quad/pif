@@ -22,8 +22,8 @@ Called pif.flickr.get_proxy(wait_callback=None)
 ...
 
 >>> i.sync()
-Called FileIndex.sync()
-Called PhotoIndex.sync()
 Called HashIndex.sync()
+Called PhotoIndex.sync()
+Called FileIndex.sync()
 
 >>> minimock.restore()
