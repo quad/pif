@@ -35,8 +35,13 @@ class FileIndex(pif.dictdb.DictDB):
 
         # Gather the metadata to create the shorthash.
         with file(filename) as f:
-            f.seek(-TAILHASH_SIZE, 2)
-            tailhash = f.read()
+            try:
+                f.seek(-TAILHASH_SIZE, 2)
+            except IOError:
+                # Maybe the file doesn't have TAILHASH_SIZE bytes to spare...
+                f.seek(0)
+
+            tailhash = f.read(TAILHASH_SIZE)
 
         shorthash = make_shorthash(
             tailhash,

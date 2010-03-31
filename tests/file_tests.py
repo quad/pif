@@ -1,5 +1,6 @@
 from __future__ import with_statement
 
+import json
 import os.path
 import shutil
 import tempfile
@@ -14,6 +15,8 @@ from nose.tools import raises
 import pif
 
 from pif.local import FileIndex
+
+from tests import DATA
 
 
 class FileIndexNullTests(unittest.TestCase):
@@ -33,49 +36,23 @@ class FileIndexSmallDirTests(unittest.TestCase):
 
     IMAGE_WIDTH, IMAGE_HEIGHT = 100, 50
 
-    FILES = {
-        'abc123.jpeg': 'jpeg',
-        'test.jpg': 'jpeg',
-        'superjoe.png': 'png',
-        'xyzzy.GIF': 'gif',
-    }
-
     def setUp(self):
         self.tempdir = tempfile.mkdtemp()
         self.index = FileIndex(os.path.join(self.tempdir, 'index'))
 
-        # Build some test images!
+        imagedir = os.path.join(DATA, 'images')
+        precalc_shs = json.load(file(os.path.join(imagedir, 'shorthashes.json')))
+
         self.shorthashes = {}
 
-        for num, meta in enumerate(self.FILES.iteritems()):
-            basename, format = meta
-            fn = os.path.join(self.tempdir, basename)
+        for fn, sh in precalc_shs.iteritems():
+            src = os.path.join(imagedir, fn)
+            dest = os.path.join(self.tempdir, fn)
 
-            i = PIL.Image.new('RGB', (self.IMAGE_WIDTH, self.IMAGE_HEIGHT))
+            shutil.copy(src, dest)
 
-            # Draw something different so the hash is unique.
-            d = PIL.ImageDraw.ImageDraw(i)
-            d.text((0, 0), "Test %u" % num)
-
-            i.save(fn)
-
-            # Gather the metadata to create the shorthash.
-            statinfo = os.stat(fn)
-
-            with file(fn) as f:
-                f.seek(-pif.TAILHASH_SIZE, 2)
-                tailhash = f.read()
-
-            self.shorthashes[fn] = pif.make_shorthash(
-                tailhash,
-                format,
-                statinfo.st_size,
-                self.IMAGE_WIDTH,
-                self.IMAGE_HEIGHT,
-            )
-
-            # Load the image into the cache.
-            self.index[fn]
+            self.shorthashes[dest] = sh
+            self.index[dest]
 
     def tearDown(self):
         shutil.rmtree(self.tempdir)
@@ -83,7 +60,7 @@ class FileIndexSmallDirTests(unittest.TestCase):
     def test_add(self):
         """Images able to be added to FileIndex"""
 
-        assert len(self.index) == len(self.FILES)
+        assert len(self.index) == len(self.shorthashes), "%s != %s" % (self.index, self.shorthashes)
 
     def test_rescan(self):
         """FileIndex detects changed images"""
@@ -116,12 +93,8 @@ class FileIndexSmallDirTests(unittest.TestCase):
     def test_adds(self):
         """FileIndex calculates shorthashes correctly"""
 
-        images = (os.path.join(self.tempdir, fn) for fn in self.FILES)
-
-        for fn in images:
+        for fn in self.shorthashes:
             assert fn in self.index
-
-            shorthash = self.index[fn]
             assert self.index[fn] == self.shorthashes[fn], \
                     "Index %s\nTest %s" % (
                         repr(self.index[fn]),
