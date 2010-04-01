@@ -2,17 +2,19 @@ import glob
 import os
 import os.path
 import tempfile
+import urllib2
 
 from doctest import DocFileTest, DocTestParser
 from xml.etree.ElementTree import XML
 from xml.parsers.expat import ExpatError
 
+import flickrapi
 import minimock
 
 from minimock import Mock
 from nose.tools import assert_raises, raises
 
-from pif.flickr import flickrapi, FlickrError, PhotoIndex, get_proxy
+from pif.flickr import FlickrError, PhotoIndex, get_proxy
 
 from tests import DATA
 
@@ -33,8 +35,7 @@ class TestProxy:
                 <err code="100" msg="Invalid API Key (Key not found)" />
             </rsp>"""
 
-        import urllib
-        minimock.mock('urllib.urlopen', returns=frob)
+        minimock.mock('urllib2.urlopen', returns=frob)
 
         get_proxy(key='xyzzy')
 
@@ -48,8 +49,7 @@ class TestProxy:
                 <err code="96" msg="Invalid signature" />
             </rsp>"""
 
-        import urllib
-        minimock.mock('urllib.urlopen', returns=frob)
+        minimock.mock('urllib2.urlopen', returns=frob)
 
         get_proxy(secret='xyzzy')
 
@@ -57,8 +57,7 @@ class TestProxy:
     def test_offline(self):
         """Proxy when offline"""
 
-        import urllib
-        minimock.mock('urllib.urlopen', raises=IOError)
+        minimock.mock('urllib2.urlopen', raises=IOError)
 
         get_proxy()
 
