@@ -4,8 +4,6 @@ import os.path
 import shutil
 import tempfile
 
-import eventlet.tpool
-
 
 class DictDB(dict):
     def __init__(self, filename):
@@ -13,7 +11,7 @@ class DictDB(dict):
 
         if os.access(filename, os.R_OK):
             with open(filename) as f:
-                self.update(eventlet.tpool.execute(json.load, f))
+                self.update(json.load(f))
 
     def sync(self):
         f = tempfile.NamedTemporaryFile(
@@ -23,7 +21,7 @@ class DictDB(dict):
 
         try:
             with f:
-                eventlet.tpool.execute(json.dump, self, f)
+                json.dump(self, f)
         except:
             os.remove(f.name)
             raise
