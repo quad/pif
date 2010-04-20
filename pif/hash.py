@@ -1,8 +1,7 @@
 import logging
-import urllib2
+import eventlet.green.urllib2 as urllib2
 
 import eventlet
-import eventlet.tpool
 
 import pif
 import pif.dictdb
@@ -16,7 +15,7 @@ class HashIndex(pif.dictdb.DictDB):
     """Cache for photo shorthashes."""
 
     RETRIES = 3
-    THREADS = 4
+    THREADS = 10
 
     def __init__(self, photos, filename):
         pif.dictdb.DictDB.__init__(self, filename)
@@ -33,7 +32,7 @@ class HashIndex(pif.dictdb.DictDB):
             headers={'Range': "bytes=-%u" % TAILHASH_SIZE},
         )
 
-        f = eventlet.tpool.execute(urllib2.urlopen, req)
+        f = urllib2.urlopen(req)
 
         if f.code != urllib2.httplib.PARTIAL_CONTENT:
             raise IOError("Got status %s from Flickr" % f.code)
@@ -64,7 +63,7 @@ class HashIndex(pif.dictdb.DictDB):
                         progress_callback(
                             'hashes', (len(shorthashes), len(photo_ids)))
             except IOError:
-                LOG.debug('Retry #%u for shorthash retrieval', retry)
+                LOG.debug('Retry #%u for shorthash retrieval', retry + 1)
 
             if len(shorthashes) == len(photo_ids):
                 break
