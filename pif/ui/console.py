@@ -14,9 +14,11 @@ class ConsoleShell(Shell):
         Shell._init_option_parser(self)
 
         self.option_parser.add_option('-f', '--force', action='store_true',
-                                      help='force file(s) to be used')
+                                      help='force file(s) to be uploaded')
         self.option_parser.add_option('-m', '--mark', action='store_true',
-                                      help='mark files as uploaded')
+                                      help='mark file(s) as uploaded')
+        self.option_parser.add_option('-n', '--dry-run', action='store_true',
+                                      help='do not upload file(s)')
 
     def proxy_callback(self, proxy, perms, token, frob):
         LOG.info('Waiting for authorization from Flickr...')
