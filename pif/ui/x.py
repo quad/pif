@@ -326,6 +326,10 @@ class ImageStore(gtk.ListStore):
 
     Image = collections.namedtuple('Image', 'filename basename pixbuf')
 
+    __thumbnail_queue__ = Queue.Queue()
+    __thumbnail_cache__ = {}
+    __thumbnail_thread__ = None
+
     def __init__(self, view_widget):
         gtk.ListStore.__init__(
             self,
@@ -335,7 +339,8 @@ class ImageStore(gtk.ListStore):
         )
 
         # Start the thumbnailer.
-        self.thumbnail_queue = Queue.Queue()
+        if not type(self).__thumbnail_thread__:
+            type(self).__thumbnail_thread__ = self._thumbnail_wt()
 
         # Attach the view to the store.
         view_widget.props.can_focus = True
@@ -344,27 +349,32 @@ class ImageStore(gtk.ListStore):
         view_widget.set_model(self)
 
     @thread
-    def spawn_thumbnailer(self):
+    def _thumbnail_wt(self):
         thumber = gnome.ui.ThumbnailFactory(gnome.ui.THUMBNAIL_SIZE_NORMAL)
 
         while True:
-            fn, ref = self.thumbnail_queue.get()
+            fn, ref = type(self).__thumbnail_queue__.get()
 
-            type = gio.content_type_guess(fn)
+            mime = gio.content_type_guess(fn)
             uri = path2uri(fn)
             mtime = int(os.stat(fn).st_mtime)
 
-            t_uri = thumber.lookup(uri, mtime)
-            if t_uri:
-                t = gtk.gdk.pixbuf_new_from_file(t_uri)
-            elif thumber.can_thumbnail(uri, type, mtime):
-                t = thumber.generate_thumbnail(uri, type)
-                if t != None:
-                    thumber.save_thumbnail(t, uri, mtime)
+            if (uri, mtime) in type(self).__thumbnail_cache__:
+                t = type(self).__thumbnail_cache__[(uri, mtime)]
             else:
-                continue
+                t_uri = thumber.lookup(uri, mtime)
 
-            self._new_thumbnail(ref, t)
+                if t_uri:
+                    t = gtk.gdk.pixbuf_new_from_file(t_uri)
+                elif thumber.can_thumbnail(uri, mime, mtime):
+                    t = thumber.generate_thumbnail(uri, mime)
+                    if t != None:
+                        thumber.save_thumbnail(t, uri, mtime)
+
+                type(self).__thumbnail_cache__[(uri, mtime)] = t
+
+            if t != None:
+                self._new_thumbnail(ref, t)
 
     @thunk
     def _new_thumbnail(self, ref, thumbnail):
@@ -382,7 +392,7 @@ class ImageStore(gtk.ListStore):
 
         # Queue the image to be thumbnailed.
         ref = gtk.TreeRowReference(self, self.get_path(iter))
-        self.thumbnail_queue.put_nowait((filename, ref))
+        type(self).__thumbnail_queue__.put_nowait((filename, ref))
 
 
 class GTKShell(Shell):
@@ -476,9 +486,6 @@ class GTKShell(Shell):
     def files_done_cb(self):
         self.preview_window.set_status(None)
         self.preview_window.set_sensitive(True)
-
-        for s in self.stores.itervalues():
-            s.spawn_thumbnailer()
 
     def on_upload(self, preview):
         ignores = (fn for fn, bn, pb in self.stores['ignore'])
