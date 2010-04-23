@@ -32,11 +32,6 @@ class Shell(object):
         self.option_parser.add_option('-v', '--verbose', action='store_true',
                                        help='increase verbosity')
 
-        """
-        add_option('-n', '--dry-run', action='store_true',
-                   help='perform a trial run with no uploads made')
-        """
-
     def _init_logging(self):
         if 'DEBUG' in os.environ:
             logging.root.setLevel(logging.DEBUG)

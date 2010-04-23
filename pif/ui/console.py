@@ -3,10 +3,13 @@ import time
 
 from pif.ui.shell import Shell
 
+
 LOG = logging.getLogger(__name__)
 
 
 class ConsoleShell(Shell):
+    """Console front-end."""
+
     def _init_option_parser(self):
         Shell._init_option_parser(self)
 

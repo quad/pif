@@ -6,6 +6,8 @@ import tempfile
 
 
 class DictDB(dict):
+    """A persistant JSON dictionary."""
+
     def __init__(self, filename):
         self.filename = filename
 

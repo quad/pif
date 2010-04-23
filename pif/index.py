@@ -14,6 +14,8 @@ except ImportError:
 
 
 class Index:
+    """An mapping of local images to photos on Flickr."""
+
     def __init__(self,
                  proxy_callback=None,
                  progress_callback=None,
