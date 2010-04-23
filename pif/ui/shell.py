@@ -53,4 +53,4 @@ class Shell(object):
                     for fn in filter(self.RE_IMAGES.match, sorted(files)):
                         yield os.path.abspath(os.path.join(root, fn))
             else:
-                LOG.warn("%s is not a file or a directory." % fn)
+                LOG.warn("%s is not a file or a directory.", fn)

@@ -22,8 +22,8 @@ class ConsoleShell(Shell):
 
     def proxy_callback(self, proxy, perms, token, frob):
         LOG.info('Waiting for authorization from Flickr...')
-        LOG.info('(If nothing happens, open %s in your browser.)',
-                 proxy.auth_url(perms, frob))
+        LOG.debug('(If nothing happens, open %s in your browser.)',
+                  proxy.auth_url(perms, frob))
         time.sleep(5)
 
     def progress_callback(self, state, meta):
@@ -33,30 +33,31 @@ class ConsoleShell(Shell):
         }
 
         a, b = meta
-        LOG.info("%s (%u / %u)" % (msgs[state], a, b))
+        LOG.info("%s (%u / %u)", msgs[state], *meta)
 
     def run(self):
         try:
             index = self.make_index(self.proxy_callback,
                                     self.progress_callback)
         except IOError:
-            return LOG.fatal("Couldn't connect to Flickr.")
+            return LOG.critical("Couldn't connect to Flickr.")
 
         for t, fn in ((index.type(fn), fn) for fn in self.filenames):
             if t == 'new' or (t == 'old' and self.options.force):
                 if self.options.mark:
                     index.ignore(fn)
 
-                    LOG.info("%s marked as already uploaded" % fn)
+                    LOG.info("%s marked as already uploaded", fn)
+                elif self.options.dry_run:
+                    LOG.info("Would have uploaded %s", fn)
                 else:
 
                     def _(progress, done):
                         if done:
-                            print
-                            LOG.info("Uploaded %s" % fn)
+                            LOG.info("Uploaded %s", fn)
                         else:
-                            print "\rUploading %s... (%s%%)" % (
-                                fn, int(progress)),
+                            LOG.debug("Uploading %s... (%s%%)",
+                                      fn, int(progress))
 
                     index.upload(fn, callback=_)
             elif t == 'old':
@@ -64,9 +65,7 @@ class ConsoleShell(Shell):
                     "%s already uploaded, skipping (use --force to upload)",
                     fn)
             elif t == 'invalid':
-                LOG.warn("%s is invalid, skipping" % fn)
-            else:
-                LOG.debug("%s is type '%s'?" % (fn, t))
+                LOG.warn("%s is invalid, skipping", fn)
 
         index.sync()
 
