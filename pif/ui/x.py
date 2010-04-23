@@ -47,6 +47,8 @@ def thread(function):
         t.setDaemon(True)
         t.start()
 
+        return t
+
     return decorator(_worker, function)
 
 
