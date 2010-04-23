@@ -435,8 +435,6 @@ class GTKShell(Shell):
 
     @thread
     def _update_flickr_wt(self):
-        self.flickr_proxy_cb()
-
         try:
             index = self.make_index(self.flickr_proxy_cb, self.flickr_progress_cb)
         except IOError:
@@ -445,7 +443,7 @@ class GTKShell(Shell):
         self.flickr_done_cb(index)
 
     @thunk
-    def flickr_proxy_cb(self):
+    def flickr_proxy_cb(self, proxy, perms, token, frob):
         self.preview_window.set_status('Waiting for authorization from Flickr...')
 
     @thunk
