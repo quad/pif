@@ -382,10 +382,10 @@ class ImageStore(gtk.ListStore):
         store = ref.get_model()
 
         if p and store:
-            store[p] = ImageStore.Image(*store[p])._replace(pixbuf=thumbnail)
+            store[p] = self.Image(*store[p])._replace(pixbuf=thumbnail)
 
     def add(self, filename):
-        i = ImageStore.Image(filename=filename,
+        i = self.Image(filename=filename,
                              basename=gobject.filename_display_basename(filename),
                              pixbuf=self.PIXBUF_UNKNOWN)
         iter = self.append(i)
