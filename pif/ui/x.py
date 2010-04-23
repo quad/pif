@@ -397,6 +397,8 @@ class GTKShell(Shell):
             'upload': ImageStore(self.preview_window.views['upload']),
         }
 
+        self.index = None
+
     def run(self):
         if not gtk.gdk.get_display():
             self.option_parser.error('Cannot open the display.')
