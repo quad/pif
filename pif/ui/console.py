@@ -43,6 +43,8 @@ class ConsoleShell(Shell):
             return LOG.critical("Couldn't connect to Flickr.")
 
         for t, fn in ((index.type(fn), fn) for fn in self.filenames):
+            assert t in ('invalid', 'new', 'old')
+
             if t == 'new' or (t == 'old' and self.options.force):
                 if self.options.mark:
                     index.ignore(fn)
