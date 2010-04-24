@@ -46,22 +46,26 @@ class ConsoleShell(Shell):
             assert t in ('invalid', 'new', 'old')
 
             if t == 'new' or (t == 'old' and self.options.force):
-                if self.options.mark:
-                    index.ignore(fn)
-
-                    LOG.info("%s marked as already uploaded", fn)
-                elif self.options.dry_run:
-                    LOG.info("Would have uploaded %s", fn)
+                if self.options.dry_run:
+                    if self.options.mark:
+                        LOG.info("Would have marked as already uploaded %s", fn)
+                    else:
+                        LOG.info("Would have uploaded %s", fn)
                 else:
+                    if self.options.mark:
+                        index.ignore(fn)
 
-                    def _(progress, done):
-                        if done:
-                            LOG.info("Uploaded %s", fn)
-                        else:
-                            LOG.debug("Uploading %s... (%s%%)",
-                                      fn, int(progress))
+                        LOG.info("%s marked as already uploaded", fn)
+                    else:
 
-                    index.upload(fn, callback=_)
+                        def _(progress, done):
+                            if done:
+                                LOG.info("Uploaded %s", fn)
+                            else:
+                                LOG.debug("Uploading %s... (%s%%)",
+                                          fn, int(progress))
+
+                        index.upload(fn, callback=_)
             elif t == 'old':
                 LOG.info(
                     "%s already uploaded, skipping (use --force to upload)",
