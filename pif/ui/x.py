@@ -56,15 +56,6 @@ def thread(function):
     return decorator(_worker, function)
 
 
-def path2uri(pathname):
-    """Convert a pathname to a GIO compliant URI."""
-
-    vfs = gio.vfs_get_local()
-    f = vfs.get_file_for_path(pathname)
-
-    return f.get_uri()
-
-
 class FolderScanDialog(gtk.FileChooserDialog):
     """A chooser for photo folders."""
 
@@ -264,11 +255,9 @@ class PreviewWindow(gobject.GObject):
 
         for r in reversed(refs):
             p = r.get_path()
-            fn, bn, pb = source_store[p]
 
-            if fn:
-                dest_store.add(fn)
-                del source_store[p]
+            dest_store.add(source_store[p].uri)
+            del source_store[p]
 
         # Restore the selection path.
         source_view.select_path(saved_p)
@@ -285,29 +274,27 @@ class PreviewWindow(gobject.GObject):
         app_on_uris = []
 
         for p in view.get_selected_items():
-            fn, bn, pb = store[p]
+            uri = store[p].uri
 
-            if fn:
-                mime = gio.content_type_guess(fn)
-                app = gio.app_info_get_default_for_type(mime, True)
+            mime = gio.content_type_guess(uri)
+            app = gio.app_info_get_default_for_type(mime, True)
 
-                uri = path2uri(fn)
+            l_apps = map(lambda x: x[0], app_on_uris)
 
-                l_apps = map(lambda x: x[0], app_on_uris)
-
-                if app in l_apps:
-                    idx = l_apps.index(app)
-                    app_on_uris[idx][1].append(uri)
-                else:
-                    app_on_uris.append((app, [uri,]))
+            if app in l_apps:
+                idx = l_apps.index(app)
+                app_on_uris[idx][1].add(mime)
+                app_on_uris[idx][2].append(uri)
+            else:
+                app_on_uris.append((app, set(mime), [uri,]))
 
         # Launch the associated viewers for all items.
-        for app, uris in app_on_uris:
+        for app, mime, uris in app_on_uris:
             if app:
                 if not app.launch_uris(uris):
                     self.alert("Couldn't launch %s." % app.get_name())
             else:
-                self.alert("No associated viewer for type '%s'." % type)
+                self.alert("No associated viewer for type '%s'." % mime)
 
     def on_ok(self, button):
         """Process the categorized images."""
@@ -324,7 +311,7 @@ class ImageStore(gtk.ListStore):
         -1, 128,
         True)
 
-    Image = collections.namedtuple('Image', 'filename basename pixbuf')
+    Image = collections.namedtuple('Image', 'uri basename pixbuf')
 
     __thumbnail_queue__ = Queue.Queue()
     __thumbnail_cache__ = {}
@@ -333,7 +320,7 @@ class ImageStore(gtk.ListStore):
     def __init__(self, view_widget):
         gtk.ListStore.__init__(
             self,
-            gobject.TYPE_STRING,    # Filename
+            gobject.TYPE_STRING,    # URI
             gobject.TYPE_STRING,    # Basename
             gtk.gdk.Pixbuf,         # Image
         )
@@ -348,16 +335,20 @@ class ImageStore(gtk.ListStore):
         view_widget.props.text_column = 1
         view_widget.set_model(self)
 
+    def __getitem__(self, key):
+        return self.Image(*gtk.ListStore.__getitem__(self, key))
+
     @thread
     def _thumbnail_wt(self):
         thumber = gnome.ui.ThumbnailFactory(gnome.ui.THUMBNAIL_SIZE_NORMAL)
 
         while True:
-            fn, ref = type(self).__thumbnail_queue__.get()
+            uri, ref = type(self).__thumbnail_queue__.get()
 
-            mime = gio.content_type_guess(fn)
-            uri = path2uri(fn)
-            mtime = int(os.stat(fn).st_mtime)
+            mime = gio.content_type_guess(uri)
+            mtime = int(gio.File(uri) \
+                        .query_info(gio.FILE_ATTRIBUTE_TIME_MODIFIED) \
+                        .get_modification_time())
 
             if (uri, mtime) in type(self).__thumbnail_cache__:
                 t = type(self).__thumbnail_cache__[(uri, mtime)]
@@ -382,17 +373,19 @@ class ImageStore(gtk.ListStore):
         store = ref.get_model()
 
         if p and store:
-            store[p] = self.Image(*store[p])._replace(pixbuf=thumbnail)
+            store[p] = store[p]._replace(pixbuf=thumbnail)
 
-    def add(self, filename):
-        i = self.Image(filename=filename,
-                             basename=gobject.filename_display_basename(filename),
-                             pixbuf=self.PIXBUF_UNKNOWN)
+    def add(self, uri):
+        i = self.Image(uri=uri,
+                       basename=gio.File(uri) \
+                                .query_info(gio.FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME) \
+                                .get_name(),
+                       pixbuf=self.PIXBUF_UNKNOWN)
         iter = self.append(i)
 
         # Queue the image to be thumbnailed.
         ref = gtk.TreeRowReference(self, self.get_path(iter))
-        type(self).__thumbnail_queue__.put_nowait((filename, ref))
+        type(self).__thumbnail_queue__.put_nowait((uri, ref))
 
 
 class GTKShell(Shell):
@@ -477,7 +470,7 @@ class GTKShell(Shell):
 
     @thunk
     def file_new_cb(self, filename):
-        self.stores['new'].add(filename)
+        self.stores['new'].add(gio.File(filename).get_uri())
         self.preview_window.set_status("%u new images scanned" % len(self.stores['new']))
 
     @thunk
@@ -486,11 +479,12 @@ class GTKShell(Shell):
         self.preview_window.set_sensitive(True)
 
     def on_upload(self, preview):
-        ignores = (fn for fn, bn, pb in self.stores['ignore'])
-        for fn in ignores:
+        for i in self.stores['ignore']:
+            fn = gio.File(i.uri).get_path()
+
             self.index.ignore(fn)
 
-        uploads = [fn for fn, bn, pb in self.stores['upload']]
+        uploads = [gio.File(i.uri).get_path() for i in self.stores['upload']]
         self.upload(uploads)
 
     @thread
