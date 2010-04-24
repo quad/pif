@@ -12,10 +12,14 @@ Point `pif` at 'em; a single JPEG, or a whole directory. It don't matter!
 Then, if you want to upload them, `pif` can do that too.
 
 
-... ok, so I got some photos?
------------------------------
+How does it work, salesman?
+---------------------------
 
-Do you have some photos?
+Well, let me tell you!
+
+  1. Have some photos!
+
+     Do you have some photos?
 
 	$ ls
 	croppedDSC00375.JPG
@@ -26,12 +30,16 @@ Do you have some photos?
 	IMG_3405r.jpg
 	smaller.jpg
 
-I guess you do. Run `pif`!
+     I guess you do.
+
+  2. Run `pif`!
 
 	$ pif
 	$
 
-Uh. I meant...
+     Uh. I meant...
+
+  3. Use, like, the options, man!
 
 	$ pif --help
 	Usage: pif [options] <filename ...>
@@ -43,7 +51,7 @@ Uh. I meant...
 	  -m, --mark     mark file(s) as uploaded
 	  -n, --dry-run  do not upload file(s)
 
-Yes. *That!* That is what I meant!
+     Yes. *That!* That is what I meant!
 
 	$ pif --verbose --dry-run .
 	INFO:pif.ui.console: Would have uploaded croppedDSC00375.JPG
@@ -54,21 +62,21 @@ Yes. *That!* That is what I meant!
 	INFO:pif.ui.console: Would have uploaded IMG_3405r.jpg
 	INFO:pif.ui.console: Would have uploaded smaller.jpg
 
-See those photos already uploaded? THEY'RE ON FLICKR. But, uh, who wants to bad
-photos...
+     See those photos already uploaded? THEY ARE ON FLICKR. But, uh, who wants
+     to bad photos...
 
 	$ pif --verbose --mark croppedDSC00375.JPG IMG_3405r.jpg smaller.jpg
 	INFO:pif.ui.console: croppedDSC00375.JPG marked as already uploaded
 	INFO:pif.ui.console: IMG_3405r.jpg  marked as already uploaded
 	INFO:pif.ui.console: smaller.jpg marked as already uploaded
 
-And now the rest?
+     And now the rest?
 
 	$ pif --verbose .
 	INFO:pif.ui.console: Uploaded DSC00381.JPG
 	INFO:pif.ui.console: Uploaded DSC00404.JPG
 
-All done. 'course, if you don't believe me?
+     All done. Believe me?
 
 	$ pif --verbose .
 	INFO:pif.ui.console:Loading updates from Flickr... (1 / 1)
@@ -76,13 +84,13 @@ All done. 'course, if you don't believe me?
 	INFO:pif.ui.console:Indexing photos on Flickr... (2 / 2)
 	$
 
-Yeah. That was `pif`, figuring out your photos were well and truly uploaded. No
-half-assery here!
+     *SNAP!* That was `pif`, figuring out your photos were well and truly
+     uploaded. No half-assery here!
 
 That was really. Really. REALLY complex!
 ----------------------------------------
 
-That's OK.
+OK.
 
 	$ pif-gtk .
 
