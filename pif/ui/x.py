@@ -174,8 +174,7 @@ class PreviewWindow(gobject.GObject):
 
         text = gtk.Label(message)
 
-        img = gtk.Image()
-        img.set_from_stock(gtk.STOCK_CLOSE, gtk.ICON_SIZE_MENU)
+        img = gtk.image_new_from_stock(gtk.STOCK_CLOSE, gtk.ICON_SIZE_MENU)
 
         close = gtk.Button()
         close.set_image(img)
