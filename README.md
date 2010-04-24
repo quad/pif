@@ -62,15 +62,16 @@ Well, let me tell you!
         INFO:pif.ui.console: Would have uploaded IMG_3405r.jpg
         INFO:pif.ui.console: Would have uploaded smaller.jpg
 
-    See those photos already uploaded? THEY ARE ON FLICKR. But, uh, who wants
-    to bad photos...
+    See those photos already uploaded? **THEY ARE ON FLICKR.**
+
+ 4. But, uh, what about those bad photos...
 
         $ pif --verbose --mark croppedDSC00375.JPG IMG_3405r.jpg smaller.jpg
         INFO:pif.ui.console: croppedDSC00375.JPG marked as already uploaded
         INFO:pif.ui.console: IMG_3405r.jpg  marked as already uploaded
         INFO:pif.ui.console: smaller.jpg marked as already uploaded
 
-    And now the rest?
+    What about them?
 
         $ pif --verbose .
         INFO:pif.ui.console: Uploaded DSC00381.JPG
@@ -84,7 +85,7 @@ Well, let me tell you!
         INFO:pif.ui.console:Indexing photos on Flickr... (2 / 2)
         $
 
-    *SNAP!* That was `pif`, figuring out your photos were well and truly
+    **SNAP!** That was `pif`, figuring out your photos were well and truly
     uploaded. No half-assery here!
 
 That was really. Really. REALLY complex!
