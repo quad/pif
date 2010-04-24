@@ -1,7 +1,7 @@
 pif, which could mean Photos Into Flickr
 ========================================
 
-Is (Flickr)(http://flickr.com/) a hard drive in the sky for you?
+Is [Flickr](http://flickr.com/) a hard drive in the sky for you?
 
 Got photos everywhere and not sure which are on the web and which are
 languishing in digital obscurity?
@@ -26,7 +26,7 @@ Do you have some photos?
 	IMG_3405r.jpg
 	smaller.jpg
 
-I guess you do. OK, run `pif`!
+I guess you do. Run `pif`!
 
 	$ pif
 	$
