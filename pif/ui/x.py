@@ -381,7 +381,7 @@ class ImageStore(gtk.ListStore):
         i = self.Image(uri=uri,
                        basename=gio.File(uri) \
                                 .query_info(gio.FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME) \
-                                .get_name(),
+                                .get_display_name(),
                        pixbuf=self.PIXBUF_UNKNOWN)
         iter = self.append(i)
 
