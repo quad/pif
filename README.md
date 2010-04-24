@@ -12,7 +12,7 @@ Point `pif` at 'em; a single JPEG, or a whole directory. It don't matter!
 Then, if you want to upload them, `pif` can do that too.
 
 
-How does it work, salesman?
+How does it work, Mr. Salesman?
 ---------------------------
 
 Well, let me tell you!
