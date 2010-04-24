@@ -24,6 +24,8 @@ LOG = logging.getLogger(__name__)
 
 
 def thunk(function):
+    """Enqueue the method-call into the GObject mainloop."""
+
     def _(func, *args, **kwargs):
         gobject.idle_add(lambda: func(*args, **kwargs))
 
@@ -31,6 +33,8 @@ def thunk(function):
 
 
 def thread(function):
+    """Spawn a thread for the method-call."""
+
     def _worker(func, *args, **kwargs):
         def _wrapper():
             try:
