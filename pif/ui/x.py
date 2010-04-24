@@ -110,7 +110,6 @@ class PreviewWindow(gobject.GObject):
         self.window = self.glade.get_widget('window')
         self.window.connect('delete_event', self.on_close)
 
-        # TODO: Investigate how to chain this signal to the delete_event.
         cancel = self.glade.get_widget('button_cancel')
         cancel.connect('clicked', self.on_close)
 
