@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='pif',
-    version='9.4',
+    version='10.4',
 
     packages=[
         'pif',
@@ -16,6 +16,7 @@ setup(
     },
 
     install_requires=[
+        'decorator',
         'eventlet',
         'flickrapi',
     ],
