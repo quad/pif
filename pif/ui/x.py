@@ -277,16 +277,7 @@ class PreviewWindow(gobject.GObject):
     def on_item_activated(self, view, path):
         """Open selected items in a view."""
 
-        # Lookup the associated viewer for all the items.
         store = view.get_model()
-        type_on_uris = collections.defaultdict(list)
-
-        for p in view.get_selected_items():
-            fn, bn, pb = store[p]
-
-            if fn:
-                type = gio.content_type_guess(fn)
-                type_on_uris[type].append(path2uri(fn))
 
         # If the same viewer is associated to multiple types, then merge the
         # associated URIs to be launched.
@@ -294,16 +285,22 @@ class PreviewWindow(gobject.GObject):
         # This code is convoluted because the gtk.AppInfo type is not hashable.
         app_on_uris = []
 
-        for type, uris in type_on_uris.items():
-            app = gio.app_info_get_default_for_type(type, True)
-            l_apps = map(lambda x: x[0], app_on_uris)
+        for p in view.get_selected_items():
+            fn, bn, pb = store[p]
 
-            if app in l_apps:
-                idx = l_apps.index(app)
+            if fn:
+                mime = gio.content_type_guess(fn)
+                app = gio.app_info_get_default_for_type(mime, True)
 
-                app_on_uris[idx][1].extend(uris)
-            else:
-                app_on_uris.append((app, uris))
+                uri = path2uri(fn)
+
+                l_apps = map(lambda x: x[0], app_on_uris)
+
+                if app in l_apps:
+                    idx = l_apps.index(app)
+                    app_on_uris[idx][1].append(uri)
+                else:
+                    app_on_uris.append((app, [uri,]))
 
         # Launch the associated viewers for all items.
         for app, uris in app_on_uris:
