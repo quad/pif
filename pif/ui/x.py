@@ -337,6 +337,9 @@ class ImageStore(gtk.ListStore):
     def __getitem__(self, key):
         return self.Image(*gtk.ListStore.__getitem__(self, key))
 
+    def __iter__(self):
+        return (self.Image(*v) for v in gtk.ListStore.__iter__(self))
+
     @thread
     def _thumbnail_wt(self):
         thumber = gnome.ui.ThumbnailFactory(gnome.ui.THUMBNAIL_SIZE_NORMAL)
