@@ -17,7 +17,7 @@ How does it work, salesman?
 
 Well, let me tell you!
 
-  1. Have some photos!
+ 1. Have some photos!
 
      Do you have some photos?
 
@@ -30,16 +30,16 @@ Well, let me tell you!
         IMG_3405r.jpg
         smaller.jpg
 
-     I guess you do.
+    I guess you do.
 
-  2. Run `pif`!
+ 2. Run `pif`!
 
         $ pif
         $
 
-     Uh. I meant...
+    Uh. I meant...
 
-  3. Use, like, the options, man!
+ 3. Use, like, the options, man!
 
         $ pif --help
         Usage: pif [options] <filename ...>
@@ -51,7 +51,7 @@ Well, let me tell you!
           -m, --mark     mark file(s) as uploaded
           -n, --dry-run  do not upload file(s)
 
-     Yes. *That!* That is what I meant!
+    Yes. *That!* That is what I meant!
 
         $ pif --verbose --dry-run .
         INFO:pif.ui.console: Would have uploaded croppedDSC00375.JPG
@@ -62,21 +62,21 @@ Well, let me tell you!
         INFO:pif.ui.console: Would have uploaded IMG_3405r.jpg
         INFO:pif.ui.console: Would have uploaded smaller.jpg
 
-     See those photos already uploaded? THEY ARE ON FLICKR. But, uh, who wants
-     to bad photos...
+    See those photos already uploaded? THEY ARE ON FLICKR. But, uh, who wants
+    to bad photos...
 
         $ pif --verbose --mark croppedDSC00375.JPG IMG_3405r.jpg smaller.jpg
         INFO:pif.ui.console: croppedDSC00375.JPG marked as already uploaded
         INFO:pif.ui.console: IMG_3405r.jpg  marked as already uploaded
         INFO:pif.ui.console: smaller.jpg marked as already uploaded
 
-     And now the rest?
+    And now the rest?
 
         $ pif --verbose .
         INFO:pif.ui.console: Uploaded DSC00381.JPG
         INFO:pif.ui.console: Uploaded DSC00404.JPG
 
-     All done. Believe me?
+    All done. Believe me?
 
         $ pif --verbose .
         INFO:pif.ui.console:Loading updates from Flickr... (1 / 1)
@@ -84,8 +84,8 @@ Well, let me tell you!
         INFO:pif.ui.console:Indexing photos on Flickr... (2 / 2)
         $
 
-     *SNAP!* That was `pif`, figuring out your photos were well and truly
-     uploaded. No half-assery here!
+    *SNAP!* That was `pif`, figuring out your photos were well and truly
+    uploaded. No half-assery here!
 
 That was really. Really. REALLY complex!
 ----------------------------------------
